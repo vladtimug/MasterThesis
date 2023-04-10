@@ -3,3 +3,6 @@ data/
 .vscode/
 wandb/
 __pycache__/
+
+# Files
+*.pth
