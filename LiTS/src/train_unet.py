@@ -95,4 +95,4 @@ for epoch in range(wandb.config["training_epochs"]):
         }
     )
 
-torch.save(model.state_dict(), "model.pth")
+torch.save(model.state_dict(), f"{wandb.run.name}.pth")
