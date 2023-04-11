@@ -1,30 +1,53 @@
 import torch
-from metrics import PixelAccuracy
+from torchmetrics.functional import dice
+from torchmetrics.classification import MulticlassJaccardIndex
 
-class Engine():
-    def train_batch(model, data, optimizer, criterion):
-        model.train()
+multiclass_iou = MulticlassJaccardIndex(
+    num_classes=3,
+    ignore_index=0,
+    average="weighted"
+).to("cuda")
 
-        images, annotations = data
-        predictions = model(images)
-        optimizer.zero_grad()
+def train_batch(model, data, optimizer, criterion):
+    model.train()
 
-        loss = criterion(predictions, annotations)
-        accuracy = PixelAccuracy(predictions, annotations)
+    images, annotations = data
+    predictions = model(images)
+    optimizer.zero_grad()
 
-        loss.backward()
-        optimizer.step()
+    loss = criterion(predictions, annotations)
+    
+    diceScore = dice(
+            predictions, annotations,
+            average="weighted",
+            mdmc_average="samplewise",
+            ignore_index=0,
+            num_classes=3
+        )
+    
+    iouScore = multiclass_iou(predictions, annotations)
 
-        return loss.item(), accuracy.item()
+    loss.backward()
+    optimizer.step()
 
-    @torch.no_grad()
-    def validate_bacth(model, data, criterion):
-        model.eval()
+    return loss.item(), diceScore.item(), iouScore.item()
 
-        images, annotations = data
-        predictions = model(images)
+@torch.no_grad()
+def validate_batch(model, data, criterion):
+    model.eval()
 
-        loss = criterion(predictions, annotations)
-        accuracy = PixelAccuracy(predictions, annotations)
+    images, annotations = data
+    predictions = model(images)
 
-        return loss.item(), accuracy.item()
+    loss = criterion(predictions, annotations)
+    diceScore = dice(
+            predictions, annotations,
+            average="weighted",
+            mdmc_average="samplewise",
+            ignore_index=0,
+            num_classes=3
+        )
+    
+    iouScore = multiclass_iou(predictions, annotations)
+
+    return loss.item(), diceScore.item(), iouScore.item()

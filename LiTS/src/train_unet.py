@@ -5,7 +5,7 @@ from losses import CrossEntropy
 from dataset import LiTSDataset
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
-from engine import Engine
+from engine import train_batch, validate_batch
 
 # Logging Infrastructure
 run = wandb.init(
@@ -15,10 +15,23 @@ run = wandb.init(
 )
 
 wandb.config = {
-    "batch_size": 8,
-    "training_epochs":20,
+    # Training params
+    "training_batch_size": 8,
+    "training_epochs": 20,
+    
+    # Validation params
+    "validation_batch_size": 4,
+
+    # Model params
+    "encoder_name": "resnet34",
+    "encoder_depth": 5,
+    "encoder_weights": "imagenet",
+    "decoder_use_batchnorm": True,
+    "decoder_channels": [256, 128, 64, 32, 16],
+    "activation": None,
     "learning_rate": 1e-3,
-    "dataset_normalization": "ImageNet",
+
+    # Hardware params
     "device": "cuda" if torch.cuda.is_available() else "cpu"
 }
 
@@ -42,15 +55,15 @@ validation_dataset = LiTSDataset(
 
 train_dataloader = DataLoader(
     train_dataset,
-    batch_size=8,
+    batch_size=wandb.config["training_batch_size"],
     shuffle=True,
     collate_fn=train_dataset.collate_fn
 )
 
 validation_dataloader = DataLoader(
     validation_dataset,
-    batch_size=1,
-    shuffle=False,
+    batch_size=wandb.config["validation_batch_size"],
+    shuffle=True,
     collate_fn=validation_dataset.collate_fn
 )
 
@@ -63,15 +76,15 @@ validation_dataloader = DataLoader(
 
 # Model Preparation
 model = smp.Unet(
-        encoder_name="resnet34",
-        encoder_depth=5,
-        encoder_weights="imagenet",
-        decoder_use_batchnorm=True,
-        decoder_channels=[256, 128, 64, 32, 16],
+        encoder_name=wandb.config["encoder_name"],
+        encoder_depth=wandb.config["encoder_depth"],
+        encoder_weights=wandb.config["encoder_weights"],
+        decoder_use_batchnorm=wandb.config["decoder_use_batchnorm"],
+        decoder_channels=wandb.config["decoder_channels"],
         decoder_attention_type=None,
         in_channels=1,
         classes=3,
-        activation=None,
+        activation=wandb.config["activation"],
         aux_params=None
     )
 model.to(wandb.config["device"])
@@ -81,17 +94,19 @@ optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config["learning_rate"
 # Training Loop
 for epoch in range(wandb.config["training_epochs"]):
     for _, data in tqdm(enumerate(train_dataloader), total = len(train_dataloader)):
-        train_loss, train_accuracy = Engine.train_batch(model, data, optimizer, criterion)
+        train_loss, train_dsc, train_iou = train_batch(model, data, optimizer, criterion)
     
     for _, data in tqdm(enumerate(validation_dataloader), total = len(validation_dataloader)):
-        validation_loss, validation_acccuracy = Engine.validate_bacth(model, data, criterion)
+        validation_loss, validation_dsc, validation_iou = validate_batch(model, data, criterion)
 
     wandb.log(
         {
             'train_loss': train_loss,
-            'train_acc': train_accuracy,
+            'train_dice_score': train_dsc,
+            'train_IoU': train_iou,
             'val_loss': validation_loss,
-            'val_acc': validation_acccuracy
+            'val_dice_score': validation_dsc,
+            'val_IoU': validation_iou
         }
     )
 
