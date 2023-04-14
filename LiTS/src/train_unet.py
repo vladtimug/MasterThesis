@@ -17,7 +17,7 @@ run = wandb.init(
 wandb.config = {
     # Training params
     "training_batch_size": 8,
-    "training_epochs": 20,
+    "training_epochs": 40,
     
     # Validation params
     "validation_batch_size": 4,
@@ -63,7 +63,7 @@ train_dataloader = DataLoader(
 validation_dataloader = DataLoader(
     validation_dataset,
     batch_size=wandb.config["validation_batch_size"],
-    shuffle=True,
+    shuffle=False,
     collate_fn=validation_dataset.collate_fn
 )
 
@@ -92,22 +92,30 @@ criterion = CrossEntropy
 optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config["learning_rate"])
 
 # Training Loop
+
+max_score = 0
+
 for epoch in range(wandb.config["training_epochs"]):
     for _, data in tqdm(enumerate(train_dataloader), total = len(train_dataloader)):
         train_loss, train_dsc, train_iou = train_batch(model, data, optimizer, criterion)
     
     for _, data in tqdm(enumerate(validation_dataloader), total = len(validation_dataloader)):
         validation_loss, validation_dsc, validation_iou = validate_batch(model, data, criterion)
+        if validation_iou > max_score:
+            max_score = validation_iou
+            torch.save(model.state_dict(), f"{wandb.run.name}_best_iou_{max_score:.4f}.pth")
 
     wandb.log(
         {
             'train_loss': train_loss,
-            'train_dice_score': train_dsc,
+            'train_background_dice_score': train_dsc[0],
+            'train__liver_dice_score': train_dsc[1],
+            'train__tumor_dice_score': train_dsc[2],
             'train_IoU': train_iou,
             'val_loss': validation_loss,
-            'val_dice_score': validation_dsc,
+            'val_background_dice_score': validation_dsc[0],
+            'val_liver_dice_score': validation_dsc[1],
+            'val_tumor_dice_score': validation_dsc[2],
             'val_IoU': validation_iou
         }
     )
-
-torch.save(model.state_dict(), f"{wandb.run.name}.pth")

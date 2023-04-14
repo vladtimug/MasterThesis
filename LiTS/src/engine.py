@@ -1,16 +1,13 @@
 import torch
-from torchmetrics.classification import MulticlassJaccardIndex, Dice
+from torchmetrics.functional import dice
+from torchmetrics.classification import MulticlassJaccardIndex
 
 multiclass_iou = MulticlassJaccardIndex(
     num_classes=3,
     ignore_index=0,
-    average="weighted"
-).to("cuda")
-
-multiclass_dice = Dice(
-    num_classes=3,
-    ignore_index=0,
-    average="weighted"
+    average="weighted",
+    mdmc_average="samplewise",
+    threshold=0.9,
 ).to("cuda")
 
 def train_batch(model, data, optimizer, criterion):
@@ -22,13 +19,25 @@ def train_batch(model, data, optimizer, criterion):
 
     loss = criterion(predictions, annotations)
     
-    diceScore = multiclass_dice(predictions, annotations)
+    diceScore = dice(
+            predictions, annotations,
+            num_classes=3,
+            ignore_index=0,
+            average=None,
+            mdmc_average="samplewise",
+            threshold=0.9
+        )
+    backgroundDiceScore, liverDiceScore, tumorDiceScore = diceScore[0], diceScore[1], diceScore[2]
+
     iouScore = multiclass_iou(predictions, annotations)
+    # backgroundIoUScore, liverIoUScore, tumorIoUScore = iouScore[0], iouScore[1], iouScore[2]
 
     loss.backward()
     optimizer.step()
 
-    return loss.item(), diceScore.item(), iouScore.item()
+    return loss.item(), \
+            (backgroundDiceScore.item(), liverDiceScore.item(), tumorDiceScore.item()), \
+            iouScore
 
 @torch.no_grad()
 def validate_batch(model, data, criterion):
@@ -38,8 +47,20 @@ def validate_batch(model, data, criterion):
     predictions = model(images)
 
     loss = criterion(predictions, annotations)
-    
-    diceScore = multiclass_dice(predictions, annotations)
-    iouScore = multiclass_iou(predictions, annotations)
 
-    return loss.item(), diceScore.item(), iouScore.item()
+    diceScore = dice(
+            predictions, annotations,
+            num_classes=3,
+            ignore_index=0,
+            average="weighted",
+            mdmc_average="samplewise",
+            threshold=0.9
+        )
+    backgroundDiceScore, liverDiceScore, tumorDiceScore = diceScore[0], diceScore[1], diceScore[2]
+
+    iouScore = multiclass_iou(predictions, annotations)
+    # backgroundIoUScore, liverIoUScore, tumorIoUScore = iouScore[0], iouScore[1], iouScore[2]
+
+    return loss.item(), \
+            (backgroundDiceScore.item(), liverDiceScore.item(), tumorDiceScore.item()), \
+            iouScore
