@@ -1,8 +1,13 @@
 import torch
-from torchmetrics.functional import dice
-from torchmetrics.classification import MulticlassJaccardIndex
+from torchmetrics.classification import MulticlassJaccardIndex, Dice
 
 multiclass_iou = MulticlassJaccardIndex(
+    num_classes=3,
+    ignore_index=0,
+    average="weighted"
+).to("cuda")
+
+multiclass_dice = Dice(
     num_classes=3,
     ignore_index=0,
     average="weighted"
@@ -17,14 +22,7 @@ def train_batch(model, data, optimizer, criterion):
 
     loss = criterion(predictions, annotations)
     
-    diceScore = dice(
-            predictions, annotations,
-            average="weighted",
-            mdmc_average="samplewise",
-            ignore_index=0,
-            num_classes=3
-        )
-    
+    diceScore = multiclass_dice(predictions, annotations)
     iouScore = multiclass_iou(predictions, annotations)
 
     loss.backward()
@@ -40,14 +38,8 @@ def validate_batch(model, data, criterion):
     predictions = model(images)
 
     loss = criterion(predictions, annotations)
-    diceScore = dice(
-            predictions, annotations,
-            average="weighted",
-            mdmc_average="samplewise",
-            ignore_index=0,
-            num_classes=3
-        )
     
+    diceScore = multiclass_dice(predictions, annotations)
     iouScore = multiclass_iou(predictions, annotations)
 
     return loss.item(), diceScore.item(), iouScore.item()
