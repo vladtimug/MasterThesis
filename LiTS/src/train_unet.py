@@ -1,121 +1,259 @@
+import os
 import wandb
 import torch
-from tqdm import tqdm
-from losses import CrossEntropy
+import random
+import constants
+import cv2 as cv
+import numpy as np
+import pandas as pd
+from tqdm import trange, tqdm
+from unet import Scaffold_UNet
 from dataset import LiTSDataset
 from torch.utils.data import DataLoader
-import segmentation_models_pytorch as smp
-from engine import train_batch, validate_batch
+from preprocessing_utils import normalize
+from engine import model_trainer, model_validator
+from losses import MultiClassPixelWiseCrossEntropy
+from model_configs import liver_config as liver_model_config
+from training_configs import liver_config as liver_training_config
 
-# Logging Infrastructure
-run = wandb.init(
-    project="LiTS_UNet_e1",
-    save_code=True,
-    tags=["baseline"]
-)
+def Generate_Required_Datasets(config):
+    rng = np.random.RandomState(config['seed'])
+    vol_info = {}
+    vol_info['volume_slice_info'] = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_Volumes.csv',     header=0)
+    vol_info['target_mask_info']  = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LesionMasks.csv', header=0) if config['data'] == 'lesion' else pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverMasks.csv', header=0)
 
-wandb.config = {
-    # Training params
-    "training_batch_size": 8,
-    "training_epochs": 40,
+    if config['data']=='lesion':  vol_info['ref_mask_info']     = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverMasks.csv', header=0)
+    if config['use_weightmaps']:  vol_info['weight_mask_info']  = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LesionWmaps.csv', header=0) if config['data'] == 'lesion' else pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverWmaps.csv', header=0)
+
+    available_volumes = sorted(list(set(np.array(vol_info['volume_slice_info']['Volume']))), key=lambda x: int(x.split('-')[-1]))
+    rng.shuffle(available_volumes)
+
+    percentage_data_len = int(len(available_volumes)*config['perc_data'])
+    train_val_split     = int(percentage_data_len*config['train_val_split'])
+    training_volumes    = available_volumes[:percentage_data_len][:train_val_split]
+    validation_volumes  = available_volumes[:percentage_data_len][train_val_split:]
+
+
+    training_dataset   = LiTSDataset(vol_info, training_volumes, config)
+    validation_dataset = LiTSDataset(vol_info, validation_volumes, config, is_validation=True)
+    return training_dataset, validation_dataset  
+
+def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_config):
+    # Log predictions table for samples in the validation split
+    table = wandb.Table(columns=['Volume Scan', 'Annotated Mask', 'Predicted Mask'], allow_mixed_types = True)
+    _ = model.eval()
+
+    for _, file_dict in tqdm(enumerate(dataloader), total = len(dataloader)):                
+        # Handle model input
+        if 'crop_option' in file_dict.keys():
+            validation_crop = file_dict['crop_option'].type(torch.FloatTensor).to(run_config["device"])
+        
+        validation_slice = file_dict["input_images"]
+        if run_config["training_config"]["no_standardize"]:
+            model_input = normalize(validation_slice, unit_variance=False, zero_center=False)
+        else:
+            model_input = normalize(validation_slice)
+
+        model_input = model_input.type(torch.FloatTensor).to(run_config["device"])
+        
+        # Compute model output
+        model_output = model(model_input)[0].data.cpu().numpy()
     
-    # Validation params
-    "validation_batch_size": 4,
+        if 'crop_option' in file_dict.keys():
+            model_output = model_output * validation_crop
 
-    # Model params
-    "encoder_name": "resnet34",
-    "encoder_depth": 5,
-    "encoder_weights": "imagenet",
-    "decoder_use_batchnorm": True,
-    "decoder_channels": [256, 128, 64, 32, 16],
-    "activation": None,
-    "learning_rate": 1e-3,
+        if run_config["training_config"]["num_out_classes"] != 1:
+            prediction_mask = np.argmax(model_output, axis=1)
+        else:
+            prediction_mask = np.argmax(np.round(model_output))
 
-    # Hardware params
-    "device": "cuda" if torch.cuda.is_available() else "cpu"
-}
+        # Prepare Prediction Mask for Visualization
+        prediction_mask = prediction_mask[0].astype(np.uint8)
 
-# Data Preparation
-train_dataset = LiTSDataset(
-    rootDataDirectory="./data/",
-    datasetSplit="train",
-    device=wandb.config["device"]
-)
+        # Prepare Scan Slice for Visualization
+        validation_slice.detach().cpu().numpy()[0, 0]
 
-validation_dataset = LiTSDataset(
-    rootDataDirectory="./data/",
-    datasetSplit="validation",
-    device=wandb.config["device"]
-)
+        # Prepare Annotated Mask for Visualization
+        validation_mask  = file_dict["targets"][0, 0].numpy().astype(np.uint8)
 
-# test_dataset = LiTSDataset(
-#     rootDataDirectory="../data/",
-#     datasetSplit="test"
-# )
+        # Log Results Table
+        table.add_data(
+            wandb.Image(validation_slice),
+            wandb.Image(validation_mask),
+            wandb.Image(prediction_mask)
+        )
 
-train_dataloader = DataLoader(
-    train_dataset,
-    batch_size=wandb.config["training_batch_size"],
-    shuffle=True,
-    collate_fn=train_dataset.collate_fn
-)
+        wandb.log({"Best Model - Validation Predictions": table})
 
-validation_dataloader = DataLoader(
-    validation_dataset,
-    batch_size=wandb.config["validation_batch_size"],
-    shuffle=False,
-    collate_fn=validation_dataset.collate_fn
-)
-
-# test_dataloader = DataLoader(
-#     test_dataset,
-#     batch_size=1,
-#     shuffle=False,
-#     collate_fn=test_dataset.collate_fn
-# )
-
-# Model Preparation
-model = smp.Unet(
-        encoder_name=wandb.config["encoder_name"],
-        encoder_depth=wandb.config["encoder_depth"],
-        encoder_weights=wandb.config["encoder_weights"],
-        decoder_use_batchnorm=wandb.config["decoder_use_batchnorm"],
-        decoder_channels=wandb.config["decoder_channels"],
-        decoder_attention_type=None,
-        in_channels=1,
-        classes=3,
-        activation=wandb.config["activation"],
-        aux_params=None
+if __name__ == "__main__":
+    # Logging Infrastructure
+    run = wandb.init(
+        project="LiTS_2D_UNet_e1",
+        tags=["baseline"]
     )
-model.to(wandb.config["device"])
-criterion = CrossEntropy
-optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config["learning_rate"])
 
-# Training Loop
+    wandb.config = {
+        # Training Configuration
+        "training_config": liver_training_config,
+        
+        # Model Configuration
+        "model_config": liver_model_config,
 
-max_score = 0
+        # Hardware params
+        "device": "cuda" if torch.cuda.is_available() else "cpu"
+    }
 
-for epoch in range(wandb.config["training_epochs"]):
-    for _, data in tqdm(enumerate(train_dataloader), total = len(train_dataloader)):
-        train_loss, train_dsc, train_iou = train_batch(model, data, optimizer, criterion)
+    # Reproducibility
+    torch.manual_seed(wandb.config["training_config"]["seed"])
+    torch.cuda.manual_seed(wandb.config["training_config"]["seed"])
+    np.random.seed(wandb.config["training_config"]["seed"])
+    random.seed(wandb.config["training_config"]["seed"])
+    torch.backends.cudnn.deterministic = True
+
+    # GPU Setup
+    os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+    os.environ["CUDA_DEVICE_ORDER"]    = "PCI_BUS_ID"
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(wandb.config["training_config"]["gpu"])
+
+    # Data Preparation
+    train_dataset, validation_dataset = Generate_Required_Datasets(liver_training_config)
+
+    train_dataloader = DataLoader(
+        train_dataset,
+        num_workers=wandb.config["training_config"]["num_workers"],
+        batch_size=wandb.config["training_config"]["batch_size"],
+        pin_memory=False,
+        shuffle=True
+    )
+
+    validation_dataloader = DataLoader(
+        validation_dataset,
+        num_workers=0,
+        batch_size=1,
+        shuffle=False
+    )
+
+    # Loss Setup
+    loss = MultiClassPixelWiseCrossEntropy(wandb.config)
+
+    # Model Setup
+    model = Scaffold_UNet(wandb.config)
+    model.to(wandb.config["device"])
     
-    for _, data in tqdm(enumerate(validation_dataloader), total = len(validation_dataloader)):
-        validation_loss, validation_dsc, validation_iou = validate_batch(model, data, criterion)
-        if validation_iou > max_score:
-            max_score = validation_iou
-            torch.save(model.state_dict(), f"{wandb.run.name}_best_iou_{max_score:.4f}.pth")
-
-    wandb.log(
-        {
-            'train_loss': train_loss,
-            'train_background_dice_score': train_dsc[0],
-            'train__liver_dice_score': train_dsc[1],
-            'train__tumor_dice_score': train_dsc[2],
-            'train_IoU': train_iou,
-            'val_loss': validation_loss,
-            'val_background_dice_score': validation_dsc[0],
-            'val_liver_dice_score': validation_dsc[1],
-            'val_tumor_dice_score': validation_dsc[2],
-            'val_IoU': validation_iou
-        }
+    # Optimizer Setup
+    optimizer = torch.optim.Adam(
+        params=model.parameters(),
+        lr=wandb.config["training_config"]["lr"],
+        weight_decay=wandb.config["training_config"]["l2_reg"]
     )
+
+    # Learning Rate Scheduler Setup
+    if isinstance(wandb.config["training_config"]["step_size"], list):
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer=optimizer,
+            milestones=wandb.config["training_config"]["step_size"],
+            gamma=wandb.config["training_config"]["gamma"]
+        )
+    else:
+        scheduler = torch.optim.lr_scheduler.StepLR(
+            optimizer=optimizer,
+            step_size=wandb.config["training_config"]["step_size"],
+            gamma=wandb.config["training_config"]["gamma"]
+        )
+
+    # Model Metrics
+    logging_keys = ["train_dice", "train_iou", "train_precision", "train_accuracy", "train_recall", "train_specificity", "train_auc_score", "train_loss",
+                    "val_dice", "val_iou", "val_precision", "val_accuracy", "val_recall", "val_specificity", "val_auc_score", "val_loss"]
+    metrics = {key:[] for key in logging_keys}
+    metrics['best_val_dice'] = 0
+
+    # Training Loop Setup
+    training_epochs = trange(wandb.config["training_config"]["num_epochs"], position=1)
+    has_crop = wandb.config["training_config"]["data"] == "lession"
+
+    for epoch in training_epochs:
+        
+        # Training
+        training_epochs.set_description(f"Training Epoch {epoch} [learning rate = {scheduler.get_last_lr()}]")
+        model_trainer(
+            model_setup=[model, optimizer],
+            data_loader=train_dataloader,
+            loss_func=loss,
+            device=wandb.config["device"],
+            metrics_idx=wandb.config["training_config"]["verbose_idx"],
+            metrics=metrics,
+            epoch=epoch
+        )
+        torch.cuda.empty_cache()
+
+        # Validation
+        training_epochs.set_description(f"Validating Epoch {epoch}")
+        model_validator(
+            model=model,
+            data_loader=validation_dataloader,
+            loss_func=loss,
+            device=wandb.config["device"],
+            num_classes=wandb.config["training_config"]["num_out_classes"],
+            metrics=metrics,
+            epoch=epoch
+        )
+        torch.cuda.empty_cache()
+
+        # Save Training/Best Validation Checkpoint
+        if metrics["val_dice"][-1] > metrics["best_val_dice"]:
+            checkpoint_parameters = {
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "scheduler_state_dict": scheduler.state_dict(),
+                "training_loss": metrics["train_loss"][-1],
+                "validation_loss": metrics["val_loss"][-1],
+                "training_dice_score": metrics["train_dice"][-1],
+                "validation_dice_score": metrics["val_dice"][-1],
+                "training_iou_score": metrics["train_iou"][-1],
+                "validation_iou_score": metrics["val_iou"][-1],
+                "training_precision": metrics["train_precision"][-1],
+                "validation_precision": metrics["val_precision"][-1],
+                "training_accuracy": metrics["train_accuracy"][-1],
+                "validation_accuracy": metrics["val_accuracy"][-1],
+                "training_recall": metrics["train_recall"][-1],
+                "validation_recall": metrics["val_recall"][-1],
+                "training_specificity": metrics["train_specificity"][-1],
+                "validation_specificity": metrics["val_specificity"][-1],
+                "training_auc_score": metrics["train_auc_score"][-1],
+                "validation_auc_score": metrics["val_auc_score"][-1]
+            }
+
+            torch.save(
+                obj=checkpoint_parameters,
+                f=os.path.join(wandb.run.dir, "best_val_dice.pth")
+            )
+
+            metrics["best_val_dice"] = metrics["val_dice"][-1]
+
+        # Log Data
+        wandb.log(
+            {
+                "train_loss": metrics["train_loss"][-1],
+                "train_dice": metrics["train_dice"][-1],
+                "train_iou": metrics["train_iou"][-1],
+                "train_precision": metrics["train_precision"][-1],
+                "train_accuracy": metrics["train_accuracy"][-1],
+                "train_recall": metrics["train_recall"][-1],
+                "train_specificity": metrics["train_specificity"][-1],
+                "train_auc_score": metrics["train_auc_score"][-1],
+                "val_loss": metrics["val_loss"][-1],
+                "val_dice": metrics["val_dice"][-1],
+                "val_iou": metrics["val_iou"][-1],
+                "val_precision": metrics["val_precision"][-1],
+                "val_accuracy": metrics["val_accuracy"][-1],
+                "val_recall": metrics["val_recall"][-1],
+                "val_specificity": metrics["val_specificity"][-1],
+                "val_auc_score": metrics["val_auc_score"][-1],
+                "learning_rate": scheduler.get_lr()
+            }
+        )
+
+        scheduler.step()
+
+    Generate_Validation_Predictions_Comparison_Table(model=model, dataloader=validation_dataloader, run_config=wandb.config)
