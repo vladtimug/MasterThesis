@@ -19,7 +19,7 @@ class LiTSDataset(Dataset):
         self.rvic = self.config["Training_ROI_Vicinity"]
 
         self.data_augmentation = True
-        if len(self.config["augment"]) == 0 or self.is_validation:
+        if len(self.config["augment"]) == 0 and self.is_validation:
             self.data_augmentation = False
 
         self.input_samples = {
