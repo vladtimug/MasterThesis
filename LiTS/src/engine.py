@@ -184,7 +184,7 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
             epoch_auc_collect.append(mini_auc_score)
             epoch_specificity_collect.append(mini_specificity)
 
-            inp_string = 'Epoch {0} || Loss: {1:2.5f}/Vol | Dice: {1:2.5f}/Vol'.format(epoch, np.mean(epoch_loss_collect), np.mean(epoch_dice_collect))
+            inp_string = 'Epoch {0} || Loss: {1:2.5f}/Vol | Dice: {2:2.5f}/Vol'.format(epoch, np.mean(epoch_loss_collect), np.mean(epoch_dice_collect))
             validation_data_iter.set_description(inp_string)
             iter_preds_collect, iter_target_collect, iter_probs_collect = [], [], []
 
