@@ -104,8 +104,8 @@ class LiTSDataset(Dataset):
     
         type_len = len(self.input_samples[type_key])
 
-        vol, idx = self.input_samples[type_key][idx%type_len]
-        next_vol, _ = self.input_samples[type_key][(idx+1)%type_len]
+        next_vol, _ = self.input_samples[type_key][(idx + 1) % type_len]
+        vol, idx = self.input_samples[type_key][idx % type_len]
 
         vol_change = next_vol != vol
         self.curr_vol = vol
