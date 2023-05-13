@@ -18,9 +18,6 @@ class LiTSDataset(Dataset):
         self.rng = np.random.RandomState(self.config["seed"])
         self.rvic = self.config["Training_ROI_Vicinity"]
 
-        self.data_augmentation = True
-        if len(self.config["augment"]) == 0 or self.is_validation:
-            self.data_augmentation = False
 
         self.input_samples = {
             'Neg':[],
@@ -151,7 +148,7 @@ class LiTSDataset(Dataset):
 
         #First however, augmentation, if required, is performed (i.e. on fullsize images to remove border artefacts in crops).
         # if len(self.config['augment']) and not self.is_validation:
-        if self.is_validation:
+        if len(self.config["augment"]) and not self.is_validation:
             files_to_crop = list(preprocessing_utils.augment_2D(files_to_crop, mode_dict = self.config["augment"],
                                                seed=self.rng.randint(0,1e8), is_mask = is_mask))
 

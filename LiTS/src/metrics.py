@@ -10,6 +10,12 @@ def Dice(inp, target, eps=1e-6):
     dice_score = np.clip(a=raw_dice_score, a_min=1e-4, a_max=0.9999)
     return dice_score
 
+def Dice2(true_positives, false_positives, false_negatives, eps=1e-6):
+    scaled_positives = 2 * true_positives
+    raw_dice_score = scaled_positives / (scaled_positives + false_positives + false_negatives + eps)
+    dice_score = np.clip(a=raw_dice_score, a_min=1e-4, a_max=0.9999)
+    return dice_score
+
 def IoU(inp, target, eps=1e-6):
     input_flatten = inp.flatten()
     target_flatten = target.flatten()
@@ -18,6 +24,11 @@ def IoU(inp, target, eps=1e-6):
     raw_IoU = intersection / (union + eps)
     IoU = np.clip(a=raw_IoU, a_min=1e-4, a_max=0.9999)
     return IoU
+
+def IoU2(true_positives, false_positives, false_negatives, eps=1e-6):
+    raw_iou_score = true_positives / (true_positives + false_positives + false_negatives + eps)
+    iou_score = np.clip(a=raw_iou_score, a_min=1e-4, a_max=0.9999)
+    return iou_score
 
 def AuC(inp, target):
     max_prob = np.max(target, axis=1)

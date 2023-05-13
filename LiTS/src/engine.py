@@ -2,7 +2,7 @@ import time
 import torch
 import numpy as np
 from tqdm import tqdm
-from metrics import Dice, IoU, ConfusionMatrix, Precision, Recall, Specificity, Accuracy, AuC
+from metrics import Dice2, IoU2, ConfusionMatrix, Precision, Recall, Specificity, Accuracy, AuC
 
 def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metrics, epoch):
     model, optimizer = model_setup
@@ -75,19 +75,23 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
 
         if slice_idx % metrics_idx == 0 and slice_idx != 0:
             ### Compute Dice Score of collected training samples
-            dice_score = Dice(np.vstack(iter_preds_collect), np.vstack(iter_target_collect))
-            iou_score = IoU(np.vstack(iter_preds_collect), np.vstack(iter_target_collect))
+            probabilities_predictions = np.vstack(iter_probs_collect)
+            class_predictions = np.vstack(iter_preds_collect)
+            labels = np.vstack(iter_target_collect)
 
-            confusion_matrix = ConfusionMatrix(np.vstack(iter_preds_collect), np.vstack(iter_target_collect))
+            confusion_matrix = ConfusionMatrix(class_predictions, labels)
             false_positives, true_positives = confusion_matrix[0 ,1], confusion_matrix[1, 1]
             false_negatives, true_negatives = confusion_matrix[1 ,0], confusion_matrix[0, 0]
-            
+
+            dice_score = Dice2(true_positives, false_positives, false_negatives)
+            iou_score = IoU2(true_positives, false_positives, false_negatives)
+
             accuracy = Accuracy(true_positives, true_negatives, false_positives, false_negatives)
             precision = Precision(true_positives, false_positives)
             recall = Recall(true_positives, false_negatives)
             specificity = Specificity(true_negatives, false_positives)
 
-            mini_auc_score = AuC(np.vstack(iter_target_collect), np.vstack(iter_probs_collect))
+            mini_auc_score = AuC(labels, probabilities_predictions)
 
             epoch_accuracy_collect.append(accuracy)
             epoch_dice_collect.append(dice_score)
@@ -162,19 +166,23 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
             loss = loss_func(**feed_dict)
             epoch_loss_collect.append(loss.item())
 
-            mini_dice = Dice(np.vstack(iter_preds_collect), np.vstack(iter_target_collect))
-            mini_iou = IoU(np.vstack(iter_preds_collect), np.vstack(iter_target_collect))
-            
-            confusion_matrix = ConfusionMatrix(np.vstack(iter_preds_collect), np.vstack(iter_target_collect))
+            probabilities_predictions = np.vstack(iter_probs_collect)
+            class_predictions = np.vstack(iter_preds_collect)
+            labels = np.vstack(iter_target_collect)
+
+            confusion_matrix = ConfusionMatrix(class_predictions, labels)
             false_positives, true_positives = confusion_matrix[0 ,1], confusion_matrix[1, 1]
             false_negatives, true_negatives = confusion_matrix[1 ,0], confusion_matrix[0, 0]
+
+            mini_dice = Dice2(true_positives, false_positives, false_negatives)
+            mini_iou = IoU2(true_positives, false_positives, false_negatives)
             
             mini_accuracy = Accuracy(true_positives, true_negatives, false_positives, false_negatives)
             mini_precision = Precision(true_positives, false_positives)
             mini_recall = Recall(true_positives, false_negatives)
             mini_specificity = Specificity(true_negatives, false_positives)
             
-            mini_auc_score = AuC(np.vstack(iter_target_collect), np.vstack(iter_probs_collect))
+            mini_auc_score = AuC(labels, probabilities_predictions)
 
             epoch_dice_collect.append(mini_dice)
             epoch_iou_collect.append(mini_iou)
