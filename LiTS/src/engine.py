@@ -174,7 +174,7 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
             mini_recall = Recall(true_positives, false_negatives)
             mini_specificity = Specificity(true_negatives, false_positives)
             
-            mini_auc_score = AuC(np.vstack(iter_preds_collect), np.vstack(iter_probs_collect))
+            mini_auc_score = AuC(np.vstack(iter_target_collect), np.vstack(iter_probs_collect))
 
             epoch_dice_collect.append(mini_dice)
             epoch_iou_collect.append(mini_iou)
