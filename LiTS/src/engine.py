@@ -134,7 +134,6 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
         validation_data_iter.set_description(inp_string)
 
         validation_slice = file_dict["input_images"].type(torch.FloatTensor).to(device)
-        validation_mask  = file_dict["targets"].to(device)
         
         model_output = model(validation_slice)[0]
 
@@ -151,7 +150,8 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
 
         iter_preds_collect.append(model_prediction)
         
-        iter_target_collect.append(validation_mask.detach().cpu().numpy())
+        validation_mask  = file_dict["targets"]
+        iter_target_collect.append(validation_mask)
 
         if file_dict['vol_change'] or slice_idx == len(data_loader) - 1:
             feed_dict = {'inp':model_output}
