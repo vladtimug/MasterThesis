@@ -39,7 +39,7 @@ class MultiClassDice(torch.nn.Module):
         super().__init__()
 
         self.epsilon = config["training_config"]["epsilon"]
-        self.weight_score = torch.tensor(config["training_config"]["weight_score"], dtype=torch.FloatTensor, device=config["device"]) if config["training_config"]["weight_score"] is not None else None
+        self.weight_score = torch.tensor(config["training_config"]["weight_score"], dtype=torch.float, device=config["device"]) if config["training_config"]["weight_score"] is not None else None
         self.require_weightmaps = False
         self.require_one_hot = True
         self.require_single_channel_mask = False
