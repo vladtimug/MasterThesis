@@ -3,18 +3,18 @@ import wandb
 import torch
 import random
 import constants
-import cv2 as cv
 import numpy as np
 import pandas as pd
+import pickle as pkl
 from tqdm import trange, tqdm
 from unet import Scaffold_UNet
 from dataset import LiTSDataset
 from torch.utils.data import DataLoader
 from preprocessing_utils import normalize
 from engine import model_trainer, model_validator
-from losses import MultiClassPixelWiseCrossEntropy
 from model_configs import liver_config as liver_model_config
 from training_configs import liver_config as liver_training_config
+from losses import MultiClassPixelWiseCrossEntropy, MultiClassCombined
 
 def Generate_Required_Datasets(config):
     rng = np.random.RandomState(config['seed'])
@@ -110,6 +110,8 @@ if __name__ == "__main__":
     random.seed(wandb.config["training_config"]["seed"])
     torch.backends.cudnn.deterministic = True
 
+    pkl.dump(wandb.config, open(os.path.join(wandb.run.dir, "run_config.pkl"), "wb"))
+
     # GPU Setup
     os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
     os.environ["CUDA_DEVICE_ORDER"]    = "PCI_BUS_ID"
@@ -134,10 +136,22 @@ if __name__ == "__main__":
     )
 
     # Loss Setup
-    loss = MultiClassPixelWiseCrossEntropy(wandb.config)
+    if wandb.config["training_config"]["loss_func"] == "multiclass_pwce":
+        loss = MultiClassPixelWiseCrossEntropy(config=wandb.config)
+    else:
+        loss = MultiClassCombined(config=wandb.config)
 
     # Model Setup
-    model = Scaffold_UNet(wandb.config)
+    if len(wandb.config["training_config"]["initialization"]):
+        pretrain_run_config = pkl.load(open(os.path.join(wandb.config["training_config"]["initialization"], "run_config.pkl"), "rb"))
+        model = Scaffold_UNet(pretrain_run_config)
+
+        checkpoint = torch.load(os.path.join(wandb.config["training_config"]["initialization"], "best_val_dice.pth"))
+        model.load_state_dict(checkpoint["model_state_dict"])
+        del checkpoint
+    else:
+        model = Scaffold_UNet(wandb.config)
+
     model.to(wandb.config["device"])
     
     # Optimizer Setup
@@ -250,10 +264,12 @@ if __name__ == "__main__":
                 "val_recall": metrics["val_recall"][-1],
                 "val_specificity": metrics["val_specificity"][-1],
                 "val_auc_score": metrics["val_auc_score"][-1],
-                "learning_rate": scheduler.get_lr()
+                "learning_rate": scheduler.get_last_lr()
             }
         )
 
+        pd.DataFrame(metrics).to_csv(os.path.join(wandb.run.dir, "experiment_history.csv"), index=False)
+        
         scheduler.step()
 
     Generate_Validation_Predictions_Comparison_Table(model=model, dataloader=validation_dataloader, run_config=wandb.config)
