@@ -12,8 +12,8 @@ from dataset import LiTSDataset
 from torch.utils.data import DataLoader
 from preprocessing_utils import normalize
 from engine import model_trainer, model_validator
-from model_configs import liver_config as liver_model_config
-from training_configs import liver_config as liver_training_config
+from model_configs import liver_config as liver_model_config, lesion_config as lesion_model_config
+from training_configs import liver_config as liver_training_config, lesion_config as lesion_training_config
 from losses import MultiClassPixelWiseCrossEntropy, MultiClassCombined
 
 def Generate_Required_Datasets(config):
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = str(wandb.config["training_config"]["gpu"])
 
     # Data Preparation
-    train_dataset, validation_dataset = Generate_Required_Datasets(liver_training_config)
+    train_dataset, validation_dataset = Generate_Required_Datasets(wandb.config["training_config"])
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -146,9 +146,9 @@ if __name__ == "__main__":
         pretrain_run_config = pkl.load(open(os.path.join(wandb.config["training_config"]["initialization"], "run_config.pkl"), "rb"))
         model = Scaffold_UNet(pretrain_run_config)
 
-        checkpoint = torch.load(os.path.join(wandb.config["training_config"]["initialization"], "best_val_dice.pth"))
-        model.load_state_dict(checkpoint["model_state_dict"])
-        del checkpoint
+        pretrain_checkpoint = torch.load(os.path.join(wandb.config["training_config"]["initialization"], "best_val_dice.pth"))
+        model.load_state_dict(pretrain_checkpoint["model_state_dict"])
+        del pretrain_checkpoint
     else:
         model = Scaffold_UNet(wandb.config)
 
