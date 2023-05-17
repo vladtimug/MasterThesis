@@ -213,3 +213,18 @@ def get_crops_per_batch(batch_to_crop, idx_batch=None, crop_size=[128,128], seed
         batch_list_to_return.append(batch_to_crop[i][:, crop_coordinates[0][0]: crop_coordinates[0][1], crop_coordinates[1][0]: crop_coordinates[1][1]])
 
     return tuple(batch_list_to_return)
+
+def numpy_generate_onehot_matrix(matrix_mask, ndim):
+    """
+    Function to convert a mask array of shape W,H(,D) with values
+    in 0...C-1 to an array of shape C,W,H(,D). Works with numpy arrays.
+
+    Arguments:
+        matrix_mask:    Mask to convert.
+        ndim:           Number of additional one-hot dimensions.
+    """
+    onehot_matrix = np.eye(ndim)[matrix_mask.reshape(-1).astype('int')].astype('int')
+    data_shape    = list(matrix_mask.shape)
+    data_shape[0] = ndim
+    onehot_matrix = np.fliplr(np.flipud(onehot_matrix).T).reshape(*data_shape)
+    return onehot_matrix
