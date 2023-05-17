@@ -34,7 +34,7 @@ class MultiClassDice(torch.nn.Module):
     """
     Surrogate loss for multiclass dice loss by computing the dice score per channel.
     """
-    
+
     def __init__(self, config):
         super().__init__()
 
@@ -44,24 +44,25 @@ class MultiClassDice(torch.nn.Module):
         self.require_one_hot = True
         self.require_single_channel_mask = False
         self.require_single_channel_input = False
-    
-    def forward(self, inp, target_one_hot):
-        bs, ch = inp.size()[:2]
+        self.config = config
 
-        inp = inp.type(torch.FloatTensor).to(self.config["device"]).view(bs, ch, -1)
-        target_one_hot = target_one_hot.type(torch.FloatTensor).to(self.config["device"]).view(bs, ch, -1)
+    def forward(self, inp, target_one_hot):
+        batch_size, channels = inp.size()[:2]
+
+        inp = inp.type(torch.FloatTensor).to(self.config["device"]).view(batch_size, channels, -1)
+        target_one_hot = target_one_hot.type(torch.FloatTensor).to(self.config["device"]).view(batch_size, channels, -1)
 
         intersection = torch.sum(inp * target_one_hot, dim=2)
-        union = torch.sum(inp, dim=2) * torch.sum(target_one_hot, dim=2) * self.config["training_config"]["epsilon"]
+        union = torch.sum(inp, dim=2) + torch.sum(target_one_hot, dim=2) + self.config["training_config"]["epsilon"]
 
         if self.weight_score is not None:
-            weight_score = torch.stack([self.weight_score for _ in range(bs)], dim=0)
-            dice_loss = torch.mean(-1. * torch.mean((2. * intersection * weight_score) / union, dim=1))
+            weight_score = torch.stack([self.weight_score for _ in range(batch_size)], dim=0)
+            dice_loss = torch.mean(-1. * torch.mean(2. * intersection * weight_score / union, dim=1))
         else:
             dice_loss = torch.mean(-1. * torch.mean(2. * intersection / union, dim=1))
-        
+
         return dice_loss
-    
+
 class MultiClassCombined(torch.nn.Module):
     """
     Pixel-Weighted Multiclass CrossEntropyLoss over Multiclass Dice Loss
@@ -74,13 +75,13 @@ class MultiClassCombined(torch.nn.Module):
         self.cross_entropy_loss = MultiClassPixelWiseCrossEntropy(config=config)
         self.dice_loss = MultiClassDice(config=config)
         self.require_weightmaps = True if self.wmap_weight else None
-        self.require_one_hot = False
+        self.require_one_hot = self.dice_loss.require_one_hot or self.cross_entropy_loss.require_one_hot
         self.require_single_channel_mask = self.dice_loss.require_single_channel_mask or self.cross_entropy_loss.require_single_channel_mask
         self.require_single_channel_input = self.dice_loss.require_single_channel_input or self.cross_entropy_loss.require_single_channel_input
-    
-    def forward(self, inp, target, target_one_hot, wmap=None):
-        pixel_wise_cross_entropy_loss = self.cross_entropy_loss(inp, target, wmap)
+
+    def forward(self, inp, target, target_one_hot, weight_map=None):
+        pixel_wise_cross_entropy_loss = self.cross_entropy_loss(inp, target, weight_map)
         dice_loss = self.dice_loss(inp, target_one_hot)
-        combined_loss = pixel_wise_cross_entropy_loss / (-1. * dice_loss)
+        combined_loss = pixel_wise_cross_entropy_loss / (-1 * dice_loss)
 
         return combined_loss
