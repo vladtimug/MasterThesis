@@ -161,12 +161,15 @@ class LiTSDataset(Dataset):
             weightmap       = crops_for_picked_batch[2] if weightmap is not None else None
             crop_mask       = crops_for_picked_batch[-1] if crop_mask is not None else None
 
+        one_hot_target = preprocessing_utils.numpy_generate_onehot_matrix(target_mask, self.config['num_classes']) if self.config['require_one_hot'] else None
+
         #Final Output Dictionary
         return_dict = {
             "input_images":input_image.astype(float),
             "targets":target_mask.astype(float),
             "crop_option":crop_mask.astype(float) if crop_mask is not None else None,
             "weightmaps":weightmap.astype(float) if weightmap is not None else None,
+            "one_hot_targets": one_hot_target,
             'internal_slice_name':intvol,
             'vol_change':vol_change
         }
