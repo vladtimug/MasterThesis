@@ -28,14 +28,14 @@ liver_config = {
 	"Training_ROI_Vicinity": 4,
 	"savename": "liver_small",
 	"use_weightmaps": True,
-	# "require_one_hot": False,
+	"require_one_hot": False,
 	"num_out_classes": 2
 }
 
 lesion_config = {
     "mode": "2D",
 	"data": "lesion",
-	"num_epochs": 50,
+	"num_epochs": 55,
 	"lr": 3e-05,
 	"l2_reg": 1e-04,
 	"gpu": 0,
@@ -62,6 +62,6 @@ lesion_config = {
 	"Training_ROI_Vicinity": 4,
 	"savename": "liver_small",
 	"use_weightmaps": True,
-	# "require_one_hot": False,
+	"require_one_hot": True,
 	"num_out_classes": 2
 }
