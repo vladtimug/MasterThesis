@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import pickle as pkl
 
 st.set_page_config(
     page_title="Thesis Data Visualization",
@@ -12,7 +13,9 @@ st.write(
     """
 )
 
-metricsFile = st.file_uploader("Upload a metrics csv file")
+with st.expander("Upload experiment files"):
+    metricsFile = st.file_uploader("Upload a metrics csv file")
+    configFile = st.file_uploader("Upload a configuration file")
 
 if metricsFile is not None:
     experimentMetrics = pd.read_csv(metricsFile)
@@ -53,3 +56,7 @@ if metricsFile is not None:
         
         toPlot = pd.DataFrame.from_dict(filteredMetrics)
     st.line_chart(toPlot)
+
+if configFile is not None:
+    experimentConfig = pkl.loads(configFile.read())
+    st.write(experimentConfig)
