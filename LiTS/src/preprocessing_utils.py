@@ -228,3 +228,48 @@ def numpy_generate_onehot_matrix(matrix_mask, ndim):
     data_shape[0] = ndim
     onehot_matrix = np.fliplr(np.flipud(onehot_matrix).T).reshape(*data_shape)
     return onehot_matrix
+
+def centroid(img, lcc=False):
+    if lcc:
+        img = img.astype(np.uint8)
+        nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img, connectivity=4)
+        sizes = stats[:, -1]
+        if len(sizes) > 2:
+            max_label = 1
+            max_size = sizes[1]
+
+            for i in range(2, nb_components):
+                if sizes[i] > max_size:
+                    max_label = i
+                    max_size = sizes[i]
+
+            img2 = np.zeros(output.shape)
+            img2[output == max_label] = 255
+            img = img2
+
+    if len(img.shape) > 2:
+        M = cv.moments(img[:,:,1])
+    else:
+        M = cv.moments(img)
+
+    if M["m00"] == 0:
+        return (img.shape[0] // 2, img.shape[1] // 2)
+    
+    cX = int(M["m10"] / M["m00"])
+    cY = int(M["m01"] / M["m00"])
+    return (cX, cY)
+
+def to_polar(input_img, center):
+    input_img = input_img.astype(np.float32)
+    max_radius = np.sqrt(((input_img.shape[0]/2.0)**2.0)+((input_img.shape[1]/2.0)**2.0))
+    polar_image = cv.linearPolar(input_img, center, max_radius, cv.WARP_FILL_OUTLIERS)
+    # polar_image = cv.rotate(polar_image, cv.ROTATE_90_COUNTERCLOCKWISE)
+    return polar_image
+
+def to_cart(input_img, center):
+    input_img = input_img.astype(np.float32)
+    # input_img = cv.rotate(input_img, cv.ROTATE_90_CLOCKWISE)
+    max_radius = np.sqrt(((input_img.shape[1]/2.0)**2.0)+((input_img.shape[0]/2.0)**2.0))
+    carthesian_image = cv.linearPolar(input_img, center, max_radius, cv.WARP_FILL_OUTLIERS + cv.WARP_INVERSE_MAP)
+    carthesian_image = carthesian_image.astype(np.uint8)
+    return carthesian_image
