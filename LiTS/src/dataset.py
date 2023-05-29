@@ -163,6 +163,30 @@ class LiTSDataset(Dataset):
 
         one_hot_target = preprocessing_utils.numpy_generate_onehot_matrix(target_mask, self.config['num_classes']) if self.config['require_one_hot'] else None
 
+        # Convert data to polar coordinates if necessary
+        if self.config["polar_training"]:
+            # Compute polar origin based on annotated region of interest centroid
+            roi_centroid = preprocessing_utils.centroid(target_mask[0])
+
+            if np.random.uniform() < 0.3:
+                center_max_shift = 0.05 * 128
+                roi_centroid = np.array(roi_centroid)
+                roi_centroid = (
+                    roi_centroid[0] + np.random.uniform(-center_max_shift, center_max_shift),
+                    roi_centroid[1] + np.random.uniform(-center_max_shift, center_max_shift)
+                )
+
+            # Transform to polar cooridnates
+            input_image = np.expand_dims(preprocessing_utils.to_polar(input_image[0], roi_centroid), 0)
+            target_mask = np.expand_dims(preprocessing_utils.to_polar(target_mask[0], roi_centroid), 0)
+            crop_mask = np.expand_dims(preprocessing_utils.to_polar(crop_mask[0], roi_centroid), 0) if crop_mask is not None else None
+            weightmap = np.expand_dims(preprocessing_utils.to_polar(weightmap[0], roi_centroid), 0) if weightmap is not None else None
+            if one_hot_target is not None:
+                converted_to_polar = []
+                for ch in range(one_hot_target.shape[0]):
+                    converted_to_polar.append(preprocessing_utils.to_polar(one_hot_target[ch], roi_centroid))
+                one_hot_target = np.stack(converted_to_polar, axis=0)
+        
         #Final Output Dictionary
         return_dict = {
             "input_images":input_image.astype(float),
