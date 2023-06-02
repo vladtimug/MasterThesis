@@ -2,6 +2,7 @@ import constants
 import numpy as np
 import pandas as pd
 import scipy.ndimage as ndi
+import cv2 as cv
 
 def set_bounds(image,min_bound,max_bound):
     """

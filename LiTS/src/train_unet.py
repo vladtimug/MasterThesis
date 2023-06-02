@@ -272,4 +272,4 @@ if __name__ == "__main__":
         
         scheduler.step()
 
-    Generate_Validation_Predictions_Comparison_Table(model=model, dataloader=validation_dataloader, run_config=wandb.config)
+    # Generate_Validation_Predictions_Comparison_Table(model=model, dataloader=validation_dataloader, run_config=wandb.config)

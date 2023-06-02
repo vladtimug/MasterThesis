@@ -189,11 +189,11 @@ class LiTSDataset(Dataset):
         
         #Final Output Dictionary
         return_dict = {
-            "input_images":input_image.astype(float),
-            "targets":target_mask.astype(float),
-            "crop_option":crop_mask.astype(float) if crop_mask is not None else None,
-            "weightmaps":weightmap.astype(float) if weightmap is not None else None,
-            "one_hot_targets": one_hot_target,
+            "input_images":input_image.astype(np.float32),
+            "targets":target_mask.astype(np.float32),
+            "crop_option":crop_mask.astype(np.float32) if crop_mask is not None else None,
+            "weightmaps":weightmap.astype(np.float32) if weightmap is not None else None,
+            "one_hot_targets": one_hot_target.astype(np.float32),
             'internal_slice_name':intvol,
             'vol_change':vol_change
         }
