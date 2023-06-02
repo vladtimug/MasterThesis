@@ -11,6 +11,7 @@ from unet import Scaffold_UNet
 from dataset import LiTSDataset
 from torch.utils.data import DataLoader
 from preprocessing_utils import normalize
+import segmentation_models_pytorch as smp
 from engine import model_trainer, model_validator
 from model_configs import liver_config as liver_model_config, lesion_config as lesion_model_config
 from training_configs import liver_config as liver_training_config, lesion_config as lesion_training_config
@@ -140,19 +141,31 @@ if __name__ == "__main__":
         loss = MultiClassPixelWiseCrossEntropy(config=wandb.config)
     else:
         loss = MultiClassCombined(config=wandb.config)
-
+        
     # Model Setup
-    if len(wandb.config["training_config"]["initialization"]):
-        pretrain_run_config = pkl.load(open(os.path.join(wandb.config["training_config"]["initialization"], "run_config.pkl"), "rb"))
-        model = Scaffold_UNet(pretrain_run_config)
+    if wandb.config["model_config"]["model"] == "custom_unet":
+        if len(wandb_config["training_config"]["initialization"]):
+            pretrain_run_config = pkl.load(open(os.path.join(wandb.config["training_config"]["initialization"], "experiment_config.pkl"), "rb"))
+            model = Scaffold_UNet(pretrain_run_config)
 
-        pretrain_checkpoint = torch.load(os.path.join(wandb.config["training_config"]["initialization"], "best_val_dice.pth"))
-        model.load_state_dict(pretrain_checkpoint["model_state_dict"])
-        del pretrain_checkpoint
-    else:
-        model = Scaffold_UNet(wandb.config)
-
-    model.to(wandb.config["device"])
+            pretrain_checkpoint = torch.load(os.path.join(wandb_config["training_config"]["initialization"], "best_val_dice.pth"))
+            model.load_state_dict(pretrain_checkpoint["model_state_dict"])
+            del pretrain_checkpoint
+        else:
+            model = Scaffold_UNet(wandb_config)
+    elif wandb.config["model_config"]["model"] == "classic_unet":
+        model = UNet(
+            in_channels=1,
+            out_channels=2
+        )
+    elif wandb.config["model_config"]["model"] == "unet_plus_plus":
+        model = smp.UnetPlusPlus(
+            in_channels=1,
+            classes=2,
+            encoder_weights=None,
+            activation='sigmoid'
+        )
+    model.to(wandb_config["device"])
     
     # Optimizer Setup
     optimizer = torch.optim.Adam(
