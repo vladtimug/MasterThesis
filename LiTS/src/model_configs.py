@@ -1,6 +1,6 @@
 liver_config = {
 	"model": "custom_unet",	# Available options: classic_unet, custom_unet, unet_plus_plus
-    	"structure": [3, 3, 3, 3, 3],
+	"structure": [3, 3, 3, 3, 3],
 	"filter_start": 20,
 	"channels": 1,
 	"init_type": "he_n",
@@ -24,7 +24,7 @@ liver_config = {
 
 lesion_config = {
 	"model": "custom_unet",	# Available options: classic_unet, custom_unet, unet_plus_plus
-    	"structure": [3, 3, 3, 3, 3],
+	"structure": [3, 3, 3, 3, 3],
 	"filter_start": 20,
 	"channels": 1,
 	"init_type": "he_n",
