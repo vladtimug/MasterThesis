@@ -166,6 +166,12 @@ if __name__ == "__main__":
             encoder_weights=None,
             activation='sigmoid'
         )
+    elif wandb.config["model_config"]["model"] == "deeplab":
+        model = smp.DeepLabV3Plus(
+            in_channels=1,
+            classes=2,
+            activation="sigmoid"
+        )
     model.to(wandb.config["device"])
     
     # Optimizer Setup
