@@ -6,6 +6,7 @@ import constants
 import numpy as np
 import pandas as pd
 import pickle as pkl
+from unet_classic import UNet
 from tqdm import trange, tqdm
 from unet import Scaffold_UNet
 from dataset import LiTSDataset
@@ -144,15 +145,15 @@ if __name__ == "__main__":
         
     # Model Setup
     if wandb.config["model_config"]["model"] == "custom_unet":
-        if len(wandb_config["training_config"]["initialization"]):
+        if len(wandb.config["training_config"]["initialization"]):
             pretrain_run_config = pkl.load(open(os.path.join(wandb.config["training_config"]["initialization"], "experiment_config.pkl"), "rb"))
             model = Scaffold_UNet(pretrain_run_config)
 
-            pretrain_checkpoint = torch.load(os.path.join(wandb_config["training_config"]["initialization"], "best_val_dice.pth"))
+            pretrain_checkpoint = torch.load(os.path.join(wandb.config["training_config"]["initialization"], "best_val_dice.pth"))
             model.load_state_dict(pretrain_checkpoint["model_state_dict"])
             del pretrain_checkpoint
         else:
-            model = Scaffold_UNet(wandb_config)
+            model = Scaffold_UNet(wandb.config)
     elif wandb.config["model_config"]["model"] == "classic_unet":
         model = UNet(
             in_channels=1,
@@ -165,7 +166,7 @@ if __name__ == "__main__":
             encoder_weights=None,
             activation='sigmoid'
         )
-    model.to(wandb_config["device"])
+    model.to(wandb.config["device"])
     
     # Optimizer Setup
     optimizer = torch.optim.Adam(

@@ -5,11 +5,12 @@ import torch.nn as nn
 
 class UNet(nn.Module):
 
-	def __init__(self, device, init_method="he_n", in_channels=3, out_channels=1, init_features=32):
+	def __init__(self, init_method="default", in_channels=3, out_channels=1, init_features=32):
 		super(UNet, self).__init__()
-		self.device = device
 		self.init_method = init_method
-
+		if self.init_method != "default":
+			self.weight_init()
+			
 		features = init_features
 		self.encoder1 = UNet._block(in_channels, features, name="enc1")
 		self.pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
