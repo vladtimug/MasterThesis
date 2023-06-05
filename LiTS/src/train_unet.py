@@ -170,6 +170,7 @@ if __name__ == "__main__":
         model = smp.DeepLabV3Plus(
             in_channels=1,
             classes=2,
+            encoder_weights=None,
             activation="sigmoid"
         )
     model.to(wandb.config["device"])
