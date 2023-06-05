@@ -12,7 +12,7 @@ def parse_arguments():
 
     parser.add_argument("--model_path",
                         type=str,
-                        default="./LiTS/experiments_data/set_3/lesion/experiment_6/"
+                        default="./LiTS/experiments_data/set_3/lesion/experiment_7/"
                     )
 
     script_arguments = parser.parse_args()
@@ -44,5 +44,7 @@ if __name__ == "__main__":
     torch.onnx.export(
         model,
         input_data,
-        os.path.join(args.model_path, model_name)
+        os.path.join(args.model_path, model_name),
+        input_names=["input"],
+        output_names=["output"]
     )
