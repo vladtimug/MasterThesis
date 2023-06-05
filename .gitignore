@@ -1,5 +1,4 @@
 # Directories
-experiments_data/
 .vscode/
 wandb/
 __pycache__/
