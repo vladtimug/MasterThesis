@@ -26,7 +26,7 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
         training_slice  = file_dict["input_images"].type(torch.FloatTensor).to(device)
 
         ### GET PREDICTION ###
-        model_output, _ = model(training_slice)
+        model_output = model(training_slice)
 
         ### BASE LOSS ###
         feed_dict = {'inp':model_output}
