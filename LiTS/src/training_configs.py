@@ -1,6 +1,7 @@
 liver_config = {
     "mode": "2D",
 	"data": "liver",
+	"polar_training": True,
 	"num_epochs": 50,
 	"lr": 3e-05,
 	"l2_reg": 1e-05,
@@ -35,6 +36,7 @@ liver_config = {
 lesion_config = {
     "mode": "2D",
 	"data": "lesion",
+	"polar_training": True,
 	"num_epochs": 55,
 	"lr": 3e-05,
 	"l2_reg": 1e-04,
