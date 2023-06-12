@@ -96,10 +96,10 @@ if __name__ == "__main__":
 
     wandb.config = {
         # Training Configuration
-        "training_config": liver_training_config,
+        "training_config": lesion_training_config,
         
         # Model Configuration
-        "model_config": liver_model_config,
+        "model_config": lesion_model_config,
 
         # Hardware params
         "device": "cuda" if torch.cuda.is_available() else "cpu"
