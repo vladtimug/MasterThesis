@@ -85,3 +85,15 @@
     1. experiment_10 - Custom UNet model trained on data represented in polar coordinates.
     2. experiment_11 - Custom UNet model trained on data represented in carthesian coordinates.
 </font>
+
+### <b>5. Experiments Set 5 (DeepLabV3+)</b>
+<font size="3">
+    This set of experiments is intended to compare the results between training a DeepLabV3+ model for the task of liver tumor segmentation on the data represented in carthesian coordinates vs training the same model for the same task on the same data in polar coordinates.
+    <b>
+        * The models in these experiments have been trained on crop sizes of 256x256 pixels<br>
+        * The tumor segmentation model was initialized with pytorch default values.<br><br>
+    </b>
+    
+    1. experiment_12 - DeepLabV3+ model trained on data represented in carthesian coordinates.
+    2. experiment_13 - DeepLabV3+ model trained on data represented in polar coordinates.
+</font>
