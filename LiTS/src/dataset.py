@@ -236,7 +236,6 @@ class IRCADB_Dataset(Dataset):
         slice_data = np.expand_dims(slice_data, 0)
 
         mask_data = np.load(mask_entry["Slice Path"])
-        mask_data[mask_data != 0] = 1
         mask_data = np.expand_dims(preprocessing_utils.reorient_to_match_training(mask_data), 0)
 
         # Register a change in volume
