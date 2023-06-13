@@ -2,10 +2,7 @@ import os
 import torch
 import argparse
 from unet_classic import UNet
-from unet import Scaffold_UNet
 import segmentation_models_pytorch as smp
-from model_configs import lesion_config as lesion_model_config
-from training_configs import lesion_config as lesion_training_config
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
