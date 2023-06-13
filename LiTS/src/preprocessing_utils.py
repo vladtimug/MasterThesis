@@ -274,3 +274,6 @@ def to_cart(input_img, center):
     carthesian_image = cv.linearPolar(input_img, center, max_radius, cv.WARP_FILL_OUTLIERS + cv.WARP_INVERSE_MAP)
     carthesian_image = carthesian_image.astype(np.uint8)
     return carthesian_image
+
+def reorient_to_match_training(data_array):
+    return np.flipud(np.rot90(data_array, 3))
