@@ -10,10 +10,8 @@ from training_configs import lesion_config as lesion_training_config
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--model_path",
-                        type=str,
-                        default="./LiTS/experiments_data/set_3/lesion/experiment_7/"
-                    )
+    parser.add_argument("--model_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_13/")
+    parser.add_argument("--model_arch", type=str, default="deeplabv3+")
 
     script_arguments = parser.parse_args()
     return script_arguments
@@ -33,10 +31,28 @@ if __name__ == "__main__":
     input_data   = torch.randn((1, input_channels, *input_shape)).type(torch.FloatTensor)
 
     # Instantiate model & set its state dict
-    model = UNet(
-        in_channels=1,
-        out_channels=2
-    )
+    if args.model_arch == "unet":
+        model = UNet(
+            in_channels=1,
+            out_channels=2
+        )
+    elif args.model_arch == "unet++":
+        model = smp.UnetPlusPlus(
+            in_channels=1,
+            classes=2,
+            encoder_weights=None,
+            activation='sigmoid'
+        )
+    elif args.model_arch == "deeplabv3+":
+        model = smp.DeepLabV3Plus(
+            in_channels=1,
+            classes=2,
+            encoder_weights=None,
+            activation="sigmoid"
+        )
+    else:
+        raise NotImplementedError(f"{args.model_name} not implemented. Available options are unet, unet++ and deeplabv3+")
+    
     model.load_state_dict(best_validation_checkpoint["model_state_dict"])
 
     # Convert model to onnx format
