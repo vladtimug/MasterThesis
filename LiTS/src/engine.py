@@ -135,7 +135,7 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
 
         validation_slice = file_dict["input_images"].type(torch.FloatTensor).to(device)
         
-        model_output = model(validation_slice)[0]
+        model_output = model(validation_slice)
 
         if 'crop_option' in file_dict.keys():
             validation_crop = file_dict['crop_option'].type(torch.FloatTensor).to(device)
