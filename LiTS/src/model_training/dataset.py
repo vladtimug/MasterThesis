@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from torch.utils.data import Dataset
-import preprocessing_utils
+from model_training import preprocessing_utils
 import pandas as pd
 
 class LiTSDataset(Dataset):

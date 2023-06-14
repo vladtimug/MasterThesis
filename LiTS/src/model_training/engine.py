@@ -2,7 +2,7 @@ import time
 import torch
 import numpy as np
 from tqdm import tqdm
-from metrics import Dice2, IoU2, ConfusionMatrix, Precision, Recall, Specificity, Accuracy, AuC
+from model_training.metrics import Dice2, IoU2, ConfusionMatrix, Precision, Recall, Specificity, Accuracy, AuC
 
 def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metrics, epoch):
     model, optimizer = model_setup

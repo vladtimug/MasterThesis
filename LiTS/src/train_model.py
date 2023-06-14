@@ -2,21 +2,20 @@ import os
 import wandb
 import torch
 import random
-import constants
 import numpy as np
 import pandas as pd
 import pickle as pkl
-from unet_classic import UNet
 from tqdm import trange, tqdm
-from unet import Scaffold_UNet
-from dataset import LiTSDataset
 from torch.utils.data import DataLoader
-from preprocessing_utils import normalize
 import segmentation_models_pytorch as smp
-from engine import model_trainer, model_validator
-from model_configs import liver_config as liver_model_config, lesion_config as lesion_model_config
-from training_configs import liver_config as liver_training_config, lesion_config as lesion_training_config
-from losses import MultiClassPixelWiseCrossEntropy, MultiClassCombined
+from model_training.dataset import LiTSDataset
+from model_training.models.classic_unet import UNet
+from model_training import constants, engine, metrics
+from model_training.preprocessing_utils import normalize
+from model_training.models.custom_unet.unet import Scaffold_UNet
+from model_training.config.model_configs import liver_config as liver_model_config, lesion_config as lesion_model_config
+from model_training.config.training_configs import liver_config as liver_training_config, lesion_config as lesion_training_config
+from model_training.losses import MultiClassPixelWiseCrossEntropy, MultiClassCombined
 
 def Generate_Required_Datasets(config):
     rng = np.random.RandomState(config['seed'])
@@ -140,9 +139,11 @@ if __name__ == "__main__":
     # Loss Setup
     if wandb.config["training_config"]["loss_func"] == "multiclass_pwce":
         loss = MultiClassPixelWiseCrossEntropy(config=wandb.config)
-    else:
+    elif wandb.config["training_config"]["loss_func"] == "multiclass_combined":
         loss = MultiClassCombined(config=wandb.config)
-        
+    else:
+        raise NotImplementedError
+    
     # Model Setup
     if wandb.config["model_config"]["model"] == "custom_unet":
         if len(wandb.config["training_config"]["initialization"]):
@@ -210,7 +211,7 @@ if __name__ == "__main__":
         
         # Training
         training_epochs.set_description(f"Training Epoch {epoch} [learning rate = {scheduler.get_last_lr()}]")
-        model_trainer(
+        engine.model_trainer(
             model_setup=[model, optimizer],
             data_loader=train_dataloader,
             loss_func=loss,
@@ -223,7 +224,7 @@ if __name__ == "__main__":
 
         # Validation
         training_epochs.set_description(f"Validating Epoch {epoch}")
-        model_validator(
+        engine.model_validator(
             model=model,
             data_loader=validation_dataloader,
             loss_func=loss,

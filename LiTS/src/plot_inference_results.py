@@ -4,7 +4,7 @@ import os, argparse, tqdm
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from glob import glob
-from preprocessing_utils import normalize, reorient_to_match_training
+from model_training.preprocessing_utils import normalize, reorient_to_match_training
 
 def parse_script_arguments():
     parser = argparse.ArgumentParser()
@@ -23,7 +23,7 @@ def parse_script_arguments():
     parser.add_argument(
         "--output_dir_path",
         type=str, help="Path to the root directory where results will be stored",
-        default="/home/tvlad/Projects/MasterThesis/LiTS/experiments_data/set_4/lesion/experiment_9/test_results_viz/"
+        default="/home/tvlad/Projects/MasterThesis/LiTS/experiments_data/set_4/lesion/experiment_9/test_results_viz_1/"
     )
 
     return parser.parse_args()

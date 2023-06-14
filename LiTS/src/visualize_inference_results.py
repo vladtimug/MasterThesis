@@ -1,6 +1,5 @@
 import os
 import cv2 as cv
-import numpy as np
 import streamlit as st
 
 st.set_page_config(layout="wide")

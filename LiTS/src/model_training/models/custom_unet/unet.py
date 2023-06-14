@@ -1,8 +1,8 @@
 import torch
 import numpy as np
 import torch.nn as nn
-from constants import ALPHA_VALUE
-from unet_utils import LayerSet, AuxiliaryPreparator, SqueezeExcitationRecalibration, ResBlock, ResXBlock
+from model_training.constants import ALPHA_VALUE
+from model_training.models.custom_unet.unet_utils import LayerSet, AuxiliaryPreparator, SqueezeExcitationRecalibration, ResBlock, ResXBlock
 
 ### General UNet Scaffold
 class Scaffold_UNet(nn.Module):

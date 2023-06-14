@@ -1,17 +1,16 @@
-import metrics
 import numpy as np
-import pickle as pkl
-from dataset import IRCADB_Dataset
+from model_training import metrics
+from model_training.dataset import IRCADB_Dataset
 import onnx, onnxruntime, torch, os, argparse, csv, tqdm
-from preprocessing_utils import centroid, to_polar, to_cart
+from model_training.preprocessing_utils import centroid, to_polar, to_cart
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_filename", type=str, default="test_metrics.csv")
     parser.add_argument("--carthesian_experiment_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_12/")
     parser.add_argument("--polar_experiment_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_13/")
-    parser.add_argument("--mode", type=str, default="polar")
-    parser.add_argument("--output_directory_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_13/test_results/")
+    parser.add_argument("--mode", type=str, default="carthesian")
+    parser.add_argument("--output_directory_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_12/test_results/")
 
     return parser.parse_args()
 

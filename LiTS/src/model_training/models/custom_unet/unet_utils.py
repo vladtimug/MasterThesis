@@ -1,5 +1,5 @@
 import torch.nn as nn
-from constants import ALPHA_VALUE
+from model_training.constants import ALPHA_VALUE
 
 ### Simple per-dim layer selection class
 class LayerSet(object):
