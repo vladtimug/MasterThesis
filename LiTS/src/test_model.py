@@ -42,7 +42,7 @@ def polar_inference(carthesian_inf_session, polar_inf_session, scan_slice):
 
     # Compute polar model prediction
     polar_model_prediction, polar_model_probabilities = run_inference_on_sample(polar_inf_session, polar_scan_slice)
-    polar_model_prediction = np.expand_dims(np.expand_dims(to_cart(polar_model_prediction[0], center), axis=0), axis=0)
+    polar_model_prediction = np.expand_dims(to_cart(polar_model_prediction[0], center), axis=0)
     polar_model_probabilities = np.expand_dims(np.stack([to_cart(polar_model_probabilities[0, 0], center), to_cart(polar_model_probabilities[0, 1], center)], axis=0), 0)
 
     return polar_model_prediction, polar_model_probabilities
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         else:
             raise NotImplementedError
         
-        np.save(os.path.join(masks_save_dir_path, test_item["slice_path"][0].split("/")[-1]), predicted_mask[0, 0])
+        np.save(os.path.join(masks_save_dir_path, test_item["slice_path"][0].split("/")[-1]), predicted_mask[0])
         
         iter_target_collect.append(input_mask.astype(np.uint8))
         iter_preds_collect.append(predicted_mask.astype(np.uint8))
