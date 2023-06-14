@@ -1,7 +1,10 @@
 # Directories
+LiTS/experiments_data/*
 .vscode/
 wandb/
 __pycache__/
 
 # Files
 *.pth
+*.onnx
+*.png
