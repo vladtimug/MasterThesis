@@ -59,8 +59,8 @@ def Accuracy(true_positives, true_negatives, false_positives, false_negatives):
     return accuracy
 
 def Specificity(true_negatives, false_positives, eps=1e-6):
-    predicted_negatives = true_negatives + false_positives
-    specificity = np.round(true_negatives / (predicted_negatives + eps), 3)
+    total_negatives = true_negatives + false_positives
+    specificity = np.round(true_negatives / (total_negatives + eps), 3)
     return specificity
 
 def Precision(true_positives, false_positives, eps=1e-6):
