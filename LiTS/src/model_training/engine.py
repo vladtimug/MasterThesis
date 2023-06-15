@@ -79,10 +79,8 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
             class_predictions = np.vstack(iter_preds_collect)
             labels = np.vstack(iter_target_collect)
 
-            confusion_matrix = ConfusionMatrix(class_predictions, labels)
-            false_positives, true_positives = confusion_matrix[0 ,1], confusion_matrix[1, 1]
-            false_negatives, true_negatives = confusion_matrix[1 ,0], confusion_matrix[0, 0]
-
+            true_negatives, false_positives, false_negatives, true_positives = ConfusionMatrix(class_predictions, labels).ravel()
+            
             dice_score = Dice2(true_positives, false_positives, false_negatives)
             iou_score = IoU2(true_positives, false_positives, false_negatives)
 
@@ -168,9 +166,7 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
             class_predictions = np.vstack(iter_preds_collect)
             labels = np.vstack(iter_target_collect)
 
-            confusion_matrix = ConfusionMatrix(class_predictions, labels)
-            false_positives, true_positives = confusion_matrix[0 ,1], confusion_matrix[1, 1]
-            false_negatives, true_negatives = confusion_matrix[1 ,0], confusion_matrix[0, 0]
+            true_negatives, false_positives, false_negatives, true_positives = ConfusionMatrix(class_predictions, labels).ravel()
 
             mini_dice = Dice2(true_positives, false_positives, false_negatives)
             mini_iou = IoU2(true_positives, false_positives, false_negatives)

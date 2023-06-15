@@ -110,10 +110,8 @@ if __name__ == "__main__":
 
             iter_preds_collect, iter_target_collect, iter_probs_collect = [], [], []
 
-            confusion_matrix = metrics.ConfusionMatrix(class_predictions, labels)
-            false_positives, true_positives = confusion_matrix[0 ,1], confusion_matrix[1, 1]
-            false_negatives, true_negatives = confusion_matrix[1 ,0], confusion_matrix[0, 0]
-
+            true_negatives, false_positives, false_negatives, true_positives = metrics.ConfusionMatrix(class_predictions, labels).ravel()
+            
             mini_dice = metrics.Dice2(true_positives, false_positives, false_negatives)
             mini_iou = metrics.IoU2(true_positives, false_positives, false_negatives)
             mini_accuracy = metrics.Accuracy(true_positives, true_negatives, false_positives, false_negatives)
