@@ -37,7 +37,7 @@ def Generate_Required_Datasets(config):
 
     training_dataset   = LiTSDataset(vol_info, training_volumes, config)
     validation_dataset = LiTSDataset(vol_info, validation_volumes, config, is_validation=True)
-    return training_dataset, validation_dataset  
+    return training_dataset, validation_dataset
 
 def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_config):
     # Log predictions table for samples in the validation split

@@ -8,8 +8,6 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
     model, optimizer = model_setup
     _ = model.train()
 
-    # base_loss_func, aux_loss_func = losses
-
     iter_preds_collect, iter_target_collect, iter_loss_collect, iter_probs_collect = [], [], [], []
     epoch_loss_collect, epoch_dice_collect, epoch_iou_collect,\
     epoch_precision_collect, epoch_recall_collect, epoch_specificity_collect,\
@@ -20,8 +18,6 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
 
     for slice_idx, file_dict in enumerate(train_data_iter):
         train_data_iter.set_description(inp_string)
-
-        train_iter_start_time = time.time()
 
         training_slice  = file_dict["input_images"].type(torch.FloatTensor).to(device)
 
@@ -37,25 +33,7 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
         if loss_func.require_weightmaps:
             feed_dict['weight_map'] = file_dict["weightmaps"].to(device)
         
-        loss_base = loss_func(**feed_dict)
-
-        ### AUXILIARY LOSS ###
-        # loss_aux = torch.tensor(0).type(torch.FloatTensor).to(device)
-        # if opt.Network['use_auxiliary_inputs']:
-        #     for aux_ix in range(len(auxiliaries)):
-        #         feed_dict = {'inp':auxiliaries[aux_ix]}
-        #         if aux_loss_func.loss_func.require_weightmaps:
-        #             feed_dict['wmap'] = file_dict['aux_weightmaps'][aux_ix].to(device)
-        #         if aux_loss_func.loss_func.require_one_hot:
-        #             feed_dict['target_one_hot'] = file_dict['one_hot_aux_targets'][aux_ix].to(device)
-        #         if aux_loss_func.loss_func.require_single_channel_mask:
-        #             feed_dict['target'] = file_dict['aux_targets'][aux_ix].to(device)
-
-        #         loss_aux = loss_aux + 1./(aux_ix+1)*aux_loss_func(**feed_dict)
-
-        ### COMBINE LOSS FUNCTIONS ###
-        # loss = loss_base+loss_aux
-        loss = loss_base
+        loss = loss_func(**feed_dict)
 
         ### RUN BACKPROP AND WEIGHT UPDATE ###
         optimizer.zero_grad()
@@ -74,7 +52,7 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
         iter_loss_collect.append(loss.item())
 
         if slice_idx % metrics_idx == 0 and slice_idx != 0:
-            ### Compute Dice Score of collected training samples
+            ### Compute Metrics of collected training samples
             probabilities_predictions = np.vstack(iter_probs_collect)
             class_predictions = np.vstack(iter_preds_collect)
             labels = np.vstack(iter_target_collect)
@@ -134,10 +112,6 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
         validation_slice = file_dict["input_images"].type(torch.FloatTensor).to(device)
         
         model_output = model(validation_slice)
-
-        if 'crop_option' in file_dict.keys():
-            validation_crop = file_dict['crop_option'].type(torch.FloatTensor).to(device)
-            model_output = model_output * validation_crop
 
         iter_probs_collect.append(model_output.detach().cpu().numpy())
 
