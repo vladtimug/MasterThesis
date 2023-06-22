@@ -98,7 +98,7 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
 def model_validator(model, data_loader, loss_func, device, num_classes, metrics, epoch):
     _ = model.eval()
 
-    iter_preds_collect, iter_target_collect, iter_probs_collect = [], [], []
+    iter_preds_collect, iter_target_collect, iter_probs_collect, iter_loss_collect = [], [], [], []
     epoch_loss_collect, epoch_dice_collect, epoch_iou_collect,\
     epoch_precision_collect, epoch_recall_collect, epoch_specificity_collect,\
     epoch_accuracy_collect, epoch_auc_collect = [], [], [], [], [], [], [], []
@@ -125,16 +125,17 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
         validation_mask  = file_dict["targets"]
         iter_target_collect.append(validation_mask)
 
+        feed_dict = {'inp':model_output}
+        if loss_func.require_single_channel_mask:
+            feed_dict['target'] = file_dict['targets'].to(device)
+        if loss_func.require_one_hot:
+            feed_dict['target_one_hot'] = file_dict['one_hot_targets'].to(device)
+        if loss_func.require_weightmaps:
+            feed_dict['weight_map'] = file_dict["weightmaps"].to(device)
+        loss = loss_func(**feed_dict)
+        iter_loss_collect.append(loss.item())
+
         if file_dict['vol_change'] or slice_idx == len(data_loader) - 1:
-            feed_dict = {'inp':model_output}
-            if loss_func.require_single_channel_mask:
-                feed_dict['target'] = file_dict['targets'].to(device)
-            if loss_func.require_one_hot:
-                feed_dict['target_one_hot'] = file_dict['one_hot_targets'].to(device)
-            if loss_func.require_weightmaps:
-                feed_dict['weight_map'] = file_dict["weightmaps"].to(device)
-            loss = loss_func(**feed_dict)
-            epoch_loss_collect.append(loss.item())
 
             probabilities_predictions = np.vstack(iter_probs_collect)
             class_predictions = np.vstack(iter_preds_collect)
@@ -152,6 +153,7 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
             
             mini_auc_score = AuC(labels, probabilities_predictions)
 
+            epoch_loss_collect.append(np.mean(iter_loss_collect))
             epoch_dice_collect.append(mini_dice)
             epoch_iou_collect.append(mini_iou)
             epoch_accuracy_collect.append(mini_accuracy)
@@ -162,7 +164,7 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
 
             inp_string = 'Epoch {0} || Loss: {1:2.5f}/Vol | Dice: {2:2.5f}/Vol'.format(epoch, np.mean(epoch_loss_collect), np.mean(epoch_dice_collect))
             validation_data_iter.set_description(inp_string)
-            iter_preds_collect, iter_target_collect, iter_probs_collect = [], [], []
+            iter_loss_collect, iter_preds_collect, iter_target_collect, iter_probs_collect = [], [], [], []
 
     metrics['val_dice'].append(np.mean(epoch_dice_collect))
     metrics['val_iou'].append(np.mean(epoch_iou_collect))
