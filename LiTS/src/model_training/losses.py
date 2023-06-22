@@ -23,10 +23,8 @@ class MultiClassPixelWiseCrossEntropy(torch.nn.Module):
         target = target.view(batch_size,-1).type(torch.LongTensor).to(self.config["device"])
         weight_map = weight_map.view(batch_size,-1).type(torch.FloatTensor).to(self.config["device"]) if weight_map is not None else torch.zeros_like(target).type(torch.FloatTensor).to(self.config["device"])
 
-        # TODO: Figure out why 1 is added to the weight_map
-        # LE: To compensate for the case whene the weight_map is a tensor of zeros. But then, what is the impact of this addition when the weightmap is not a tensor of zeros
-
-        batch_loss = torch.mean(self.loss(inp, target) * (weight_map + 1.) ** self.wmap_weight)
+        loss = self.loss(inp, target)
+        batch_loss = torch.mean(loss * (weight_map + 1.) ** self.wmap_weight)
 
         return batch_loss
 
