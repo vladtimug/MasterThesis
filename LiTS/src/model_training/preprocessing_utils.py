@@ -4,6 +4,17 @@ import pandas as pd
 import scipy.ndimage as ndi
 import cv2 as cv
 
+def simple_normalization(image):
+    """
+    Perform data normalization for CT scan
+    """
+    min_bound = float(constants.MIN_BOUND)  # min_bound is -100
+    max_bound = float(constants.MAX_BOUND)  # max_bound is 400
+    bounded_image = np.clip(image, min_bound, max_bound)
+    normalized_image = (bounded_image - min_bound) / (max_bound - min_bound)
+    normalized_image = np.clip(normalized_image,0.,1.)
+    return normalized_image
+
 def set_bounds(image,min_bound,max_bound):
     """
     Clip image to lower bound min_bound, upper bound max_bound.
@@ -72,12 +83,10 @@ def zoom_2D(to_aug, rng=np.random.RandomState(1)):
     Function only returns data when copy_files==True.
     Note: Should also work for 3D, but has not been tested for that.
     """
-    # TODO: Figure out how the magnification range limits are computed
     magnif = rng.uniform(0.825,1.175)
     for i,aug_file in enumerate(to_aug):
         for ch in range(aug_file.shape[0]):
             sub_img     = aug_file[ch,:]
-            # sub_mask    = aug_file[ch,:]
             img_shape   = np.array(sub_img.shape)
             new_shape   = [int(np.round(magnif*shape_val)) for shape_val in img_shape]
             zoomed_shape= (magnif,)*(sub_img.ndim)
