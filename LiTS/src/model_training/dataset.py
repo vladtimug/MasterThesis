@@ -94,17 +94,14 @@ class LiTSDataset(Dataset):
                     if self.config['use_weightmaps']:
                         self.volume_details[vol]['Wmap_Paths'].append(self.div_in_volumes[vol]['Wmap_Paths'][j])
 
-                    type_key = 'Pos' if self.div_in_volumes[vol]['Has Target Mask'][j] or self.is_validation else 'Neg'
+                    type_key = 'Pos' if self.div_in_volumes[vol]['Has Target Mask'][j] else 'Neg'
                     self.input_samples[type_key].append((vol, len(self.volume_details[vol]['Input_Image_Paths']) - 1))
 
         self.n_files  = np.sum([len(self.input_samples[key]) for key in self.input_samples.keys()])
         self.curr_vol = self.input_samples['Pos'][0][0] if len(self.input_samples['Pos']) else self.input_samples['Neg'][0][0]
 
     def __getitem__(self, idx) -> None:
-        #Choose a positive example with 50% change if training.
-        #During validation, 'Pos' will contain all validation samples.
-        #Note that again, volumes without lesions/positive target masks need to be taken into account.
-        type_choice = not idx % self.config['pos_sample_chance'] or self.is_validation
+        type_choice = not idx % self.config['pos_sample_chance']
         modes = list(self.input_samples.keys())
         type_key = modes[type_choice] if len(self.input_samples[modes[type_choice]]) else modes[not type_choice]
     
@@ -139,18 +136,15 @@ class LiTSDataset(Dataset):
 
         #Generate list of all files that would need to be cropped, if cropping is required.
         files_to_crop  = [input_image, target_mask]
-        is_mask        = [0,1]
         if weightmap is not None:
             files_to_crop.append(weightmap)
-            is_mask.append(0)
         if crop_mask is not None:
             files_to_crop.append(crop_mask)
-            is_mask.append(1)
 
         #First however, augmentation, if required, is performed (i.e. on fullsize images to remove border artefacts in crops).
         if len(self.config["augment"]) and not self.is_validation:
             files_to_crop = list(preprocessing_utils.augment_2D(files_to_crop, mode_dict = self.config["augment"],
-                                               seed=self.rng.randint(0,1e8), is_mask = is_mask))
+                                               seed=self.rng.randint(0,1e8)))
 
         #If Cropping is required, we crop now.
         if len(self.config['crop_size']) and not self.is_validation:
@@ -169,7 +163,7 @@ class LiTSDataset(Dataset):
             roi_centroid = preprocessing_utils.centroid(target_mask[0])
 
             if np.random.uniform() < 0.3:
-                center_max_shift = 0.05 * 128
+                center_max_shift = 0.05 * np.min(input_image.shape)
                 roi_centroid = np.array(roi_centroid)
                 roi_centroid = (
                     roi_centroid[0] + np.random.uniform(-center_max_shift, center_max_shift),
