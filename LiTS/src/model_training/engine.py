@@ -1,8 +1,8 @@
-import time
 import torch
 import numpy as np
 from tqdm import tqdm
-from model_training.metrics import Dice2, IoU2, ConfusionMatrix, Precision, Recall, Specificity, Accuracy, AuC
+from model_training.metrics import Metrics
+from torcheval.metrics.functional import binary_confusion_matrix, binary_auroc
 
 def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metrics, epoch):
     model, optimizer = model_setup
@@ -17,9 +17,13 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
     inp_string = 'Epoch {}'.format(epoch)
 
     for slice_idx, file_dict in enumerate(train_data_iter):
+        if np.count_nonzero(file_dict["targets"]) == 0:
+            raise Exception("Found unexpected negative sample to train with")
+
         train_data_iter.set_description(inp_string)
 
         training_slice  = file_dict["input_images"].type(torch.FloatTensor).to(device)
+        training_mask = file_dict["targets"].type(torch.FloatTensor).to(device)
 
         ### GET PREDICTION ###
         model_output = model(training_slice)
@@ -40,34 +44,31 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
         loss.backward()
         optimizer.step()
 
-        iter_probs_collect.append(model_output.detach().cpu().numpy())
-
         ### GET SCORES ###
-        if model_output.shape[1]!=1:
-            iter_preds_collect.append(np.argmax(model_output.detach().cpu().numpy(),axis=1))
-        else:
-            iter_preds_collect.append(np.round(model_output.detach().cpu().numpy()))
-
-        iter_target_collect.append(file_dict['targets'].numpy())
+        # iter_probs_collect.append(np.max(model_output.detach().cpu().numpy(), axis=1))
+        max_predicted_probs, max_predicted_probs_idx = torch.max(model_output, dim=1)
+        iter_probs_collect.append(max_predicted_probs)
+        iter_preds_collect.append(max_predicted_probs_idx)
+        iter_target_collect.append(training_mask)
         iter_loss_collect.append(loss.item())
 
         if slice_idx % metrics_idx == 0 and slice_idx != 0:
             ### Compute Metrics of collected training samples
-            probabilities_predictions = np.vstack(iter_probs_collect)
-            class_predictions = np.vstack(iter_preds_collect)
-            labels = np.vstack(iter_target_collect)
+            probabilities_predictions = torch.vstack(iter_probs_collect).flatten()
+            class_predictions = torch.vstack(iter_preds_collect).flatten()
+            labels = torch.vstack(iter_target_collect).flatten()
 
-            true_negatives, false_positives, false_negatives, true_positives = ConfusionMatrix(class_predictions, labels).ravel()
+            true_negatives, false_positives, false_negatives, true_positives = binary_confusion_matrix(class_predictions, labels.type(torch.int)).cpu().numpy().ravel()
             
-            dice_score = Dice2(true_positives, false_positives, false_negatives)
-            iou_score = IoU2(true_positives, false_positives, false_negatives)
+            dice_score = Metrics.Dice2(true_positives, false_positives, false_negatives)
+            iou_score = Metrics.IoU2(true_positives, false_positives, false_negatives)
 
-            accuracy = Accuracy(true_positives, true_negatives, false_positives, false_negatives)
-            precision = Precision(true_positives, false_positives)
-            recall = Recall(true_positives, false_negatives)
-            specificity = Specificity(true_negatives, false_positives)
+            accuracy = Metrics.Accuracy(true_positives, true_negatives, false_positives, false_negatives)
+            precision = Metrics.Precision(true_positives, false_positives)
+            recall = Metrics.Recall(true_positives, false_negatives)
+            specificity = Metrics.Specificity(true_negatives, false_positives)
 
-            mini_auc_score = AuC(labels, probabilities_predictions)
+            mini_auc_score = binary_auroc(probabilities_predictions, labels).cpu().numpy()
 
             epoch_accuracy_collect.append(accuracy)
             epoch_dice_collect.append(dice_score)
@@ -107,22 +108,20 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
     inp_string = 'Epoch {}'.format(epoch)
 
     for slice_idx, file_dict in enumerate(validation_data_iter):
+        if np.count_nonzero(file_dict["targets"]) == 0:
+            raise Exception("Found unexpected negative sample to validate with")
+
         validation_data_iter.set_description(inp_string)
 
+        ### GET PREDICTION ###
         validation_slice = file_dict["input_images"].type(torch.FloatTensor).to(device)
-        
+        validation_mask = file_dict["targets"].type(torch.FloatTensor).to(device)
         model_output = model(validation_slice)
 
-        iter_probs_collect.append(model_output.detach().cpu().numpy())
-
-        if num_classes != 1:
-            model_prediction = np.argmax(model_output.detach().cpu().numpy(), axis=1)
-        else:
-            model_prediction = np.round(model_output.detach().cpu().numpy())
-
-        iter_preds_collect.append(model_prediction)
-        
-        validation_mask  = file_dict["targets"]
+        ### GET SCORES ###
+        max_predicted_probs, max_predicted_probs_idx = torch.max(model_output, dim=1)
+        iter_probs_collect.append(max_predicted_probs)
+        iter_preds_collect.append(max_predicted_probs_idx)
         iter_target_collect.append(validation_mask)
 
         feed_dict = {'inp':model_output}
@@ -137,21 +136,21 @@ def model_validator(model, data_loader, loss_func, device, num_classes, metrics,
 
         if file_dict['vol_change'] or slice_idx == len(data_loader) - 1:
 
-            probabilities_predictions = np.vstack(iter_probs_collect)
-            class_predictions = np.vstack(iter_preds_collect)
-            labels = np.vstack(iter_target_collect)
+            probabilities_predictions = torch.vstack(iter_probs_collect).flatten()
+            class_predictions = torch.vstack(iter_preds_collect).flatten()
+            labels = torch.vstack(iter_target_collect).flatten()
 
-            true_negatives, false_positives, false_negatives, true_positives = ConfusionMatrix(class_predictions, labels).ravel()
+            true_negatives, false_positives, false_negatives, true_positives = binary_confusion_matrix(class_predictions, labels.type(torch.int)).cpu().numpy().ravel()
 
-            mini_dice = Dice2(true_positives, false_positives, false_negatives)
-            mini_iou = IoU2(true_positives, false_positives, false_negatives)
+            mini_dice = Metrics.Dice2(true_positives, false_positives, false_negatives)
+            mini_iou = Metrics.IoU2(true_positives, false_positives, false_negatives)
             
-            mini_accuracy = Accuracy(true_positives, true_negatives, false_positives, false_negatives)
-            mini_precision = Precision(true_positives, false_positives)
-            mini_recall = Recall(true_positives, false_negatives)
-            mini_specificity = Specificity(true_negatives, false_positives)
+            mini_accuracy = Metrics.Accuracy(true_positives, true_negatives, false_positives, false_negatives)
+            mini_precision = Metrics.Precision(true_positives, false_positives)
+            mini_recall = Metrics.Recall(true_positives, false_negatives)
+            mini_specificity = Metrics.Specificity(true_negatives, false_positives)
             
-            mini_auc_score = AuC(labels, probabilities_predictions)
+            mini_auc_score = binary_auroc(probabilities_predictions, labels).cpu().numpy()
 
             epoch_loss_collect.append(np.mean(iter_loss_collect))
             epoch_dice_collect.append(mini_dice)
