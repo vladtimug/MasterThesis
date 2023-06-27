@@ -1,4 +1,5 @@
 import torch
+from model_training.constants import EPSILON
 
 class MultiClassPixelWiseCrossEntropy(torch.nn.Module):
     """
@@ -36,7 +37,6 @@ class MultiClassDice(torch.nn.Module):
     def __init__(self, config):
         super().__init__()
 
-        self.epsilon = config["training_config"]["epsilon"]
         self.weight_score = torch.tensor(config["training_config"]["weight_score"], dtype=torch.float, device=config["device"]) if config["training_config"]["weight_score"] is not None else None
         self.require_weightmaps = False
         self.require_one_hot = True
@@ -51,7 +51,7 @@ class MultiClassDice(torch.nn.Module):
         target_one_hot = target_one_hot.type(torch.FloatTensor).to(self.config["device"]).view(batch_size, channels, -1)
 
         intersection = torch.sum(inp * target_one_hot, dim=2)
-        union = torch.sum(inp, dim=2) + torch.sum(target_one_hot, dim=2) + self.config["training_config"]["epsilon"]
+        union = torch.sum(inp, dim=2) + torch.sum(target_one_hot, dim=2) + EPSILON
 
         if self.weight_score is not None:
             weight_score = torch.stack([self.weight_score for _ in range(batch_size)], dim=0)

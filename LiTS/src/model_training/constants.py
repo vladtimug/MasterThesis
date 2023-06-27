@@ -16,3 +16,5 @@ ROOT_PREPROCESSED_TRAINING_DATA_PATH = "../unet-lits-2d-pipeline/LOADDATA/Traini
 ROOT_PREPROCESSED_TEST_DATA_PATH = "../unet-lits-2d-pipeline/LOADDATA/Test_Data_2D/"
 
 ALPHA_VALUE = 0.05
+
+EPSILON = 1e-6
