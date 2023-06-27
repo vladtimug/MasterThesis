@@ -12,10 +12,10 @@ from model_training.dataset import LiTSDataset
 from model_training.models.classic_unet import UNet
 from model_training import constants, engine, metrics
 from model_training.preprocessing_utils import normalize
-from model_training.models.custom_unet.unet import Scaffold_UNet
-from model_training.config.model_configs import liver_config as liver_model_config, lesion_config as lesion_model_config
-from model_training.config.training_configs import liver_config as liver_training_config, lesion_config as lesion_training_config
+from model_training.config.training_config import lesion_config as lesion_training_config
 from model_training.losses import MultiClassPixelWiseCrossEntropy, MultiClassCombined
+from plot_inference_results import plot_mask_vs_prediction
+import matplotlib.pyplot as plt
 
 def Generate_Required_Datasets(config):
     rng = np.random.RandomState(config['seed'])
@@ -41,14 +41,11 @@ def Generate_Required_Datasets(config):
 
 def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_config):
     # Log predictions table for samples in the validation split
-    table = wandb.Table(columns=['Volume Scan', 'Annotated Mask', 'Predicted Mask'], allow_mixed_types = True)
+    table = wandb.Table(columns=['Volume', 'Slice', 'TumorMask', 'PredictionToMaskOverlap'], allow_mixed_types = True)
     _ = model.eval()
 
-    for _, file_dict in tqdm(enumerate(dataloader), total = len(dataloader)):                
-        # Handle model input
-        if 'crop_option' in file_dict.keys():
-            validation_crop = file_dict['crop_option'].type(torch.FloatTensor).to(run_config["device"])
-        
+    for idx, file_dict in tqdm(enumerate(dataloader), total = len(dataloader)):                
+        # Handle model input   
         validation_slice = file_dict["input_images"]
         if run_config["training_config"]["no_standardize"]:
             model_input = normalize(validation_slice, unit_variance=False, zero_center=False)
@@ -58,47 +55,51 @@ def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_conf
         model_input = model_input.type(torch.FloatTensor).to(run_config["device"])
         
         # Compute model output
-        model_output = model(model_input)[0].data.cpu().numpy()
-    
-        if 'crop_option' in file_dict.keys():
-            model_output = model_output * validation_crop
-
-        if run_config["training_config"]["num_out_classes"] != 1:
-            prediction_mask = np.argmax(model_output, axis=1)
-        else:
-            prediction_mask = np.argmax(np.round(model_output))
+        model_output = model(model_input).data.cpu().numpy()
 
         # Prepare Prediction Mask for Visualization
-        prediction_mask = prediction_mask[0].astype(np.uint8)
+        if run_config["training_config"]["num_out_classes"] != 1:
+            prediction_mask = np.argmax(model_output, axis=1)[0].astype(np.uint8)
+        else:
+            prediction_mask = np.argmax(np.round(model_output))[0].astype(np.uint8)
 
         # Prepare Scan Slice for Visualization
-        validation_slice.detach().cpu().numpy()[0, 0]
+        validation_slice = validation_slice.detach().cpu().numpy()[0, 0]
 
         # Prepare Annotated Mask for Visualization
-        validation_mask  = file_dict["targets"][0, 0].numpy().astype(np.uint8)
+        validation_mask = validation_mask  = file_dict["targets"][0, 0].numpy().astype(np.uint8)
 
         # Log Results Table
+        validation_sample_path = file_dict["internal_slice_name"][0]
+        slice_name = validation_sample_path.split("/")[-1]
+        volume_name = validation_sample_path.split("/")[-2]
+        mask_flag = True if np.count_nonzero(validation_mask) != 0 else False
+        comparison_figure = plot_mask_vs_prediction(validation_slice, validation_mask, prediction_mask, "", figure_title=volume_name + " " + slice_name, save_fig=False)
+        log_image = wandb.Image(comparison_figure)
+        plt.close(comparison_figure)
+        
         table.add_data(
-            wandb.Image(validation_slice),
-            wandb.Image(validation_mask),
-            wandb.Image(prediction_mask)
+            volume_name,
+            slice_name,
+            mask_flag,
+            log_image
         )
 
-        wandb.log({"Best Model - Validation Predictions": table})
+    wandb.log({"Best Model - Validation Predictions": table})
 
 if __name__ == "__main__":
     # Logging Infrastructure
+    preprocessing_tag = "polar" if lesion_training_config["polar_training"] else "carthesian"
+
     run = wandb.init(
         project="LiTS_2D_UNet_e1",
-        tags=["baseline"]
+        tags=[lesion_training_config["model"], preprocessing_tag]
     )
-
+    
+    # Configs
     wandb.config = {
         # Training Configuration
         "training_config": lesion_training_config,
-        
-        # Model Configuration
-        "model_config": lesion_model_config,
 
         # Hardware params
         "device": "cuda" if torch.cuda.is_available() else "cpu"
@@ -111,7 +112,7 @@ if __name__ == "__main__":
     random.seed(wandb.config["training_config"]["seed"])
     torch.backends.cudnn.deterministic = True
 
-    pkl.dump(wandb.config, open(os.path.join(wandb.run.dir, "run_config.pkl"), "wb"))
+    pkl.dump(wandb.config, open(os.path.join(wandb.run.dir, "experiment_config.pkl"), "wb"))
 
     # GPU Setup
     os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
@@ -145,29 +146,19 @@ if __name__ == "__main__":
         raise NotImplementedError
     
     # Model Setup
-    if wandb.config["model_config"]["model"] == "custom_unet":
-        if len(wandb.config["training_config"]["initialization"]):
-            pretrain_run_config = pkl.load(open(os.path.join(wandb.config["training_config"]["initialization"], "experiment_config.pkl"), "rb"))
-            model = Scaffold_UNet(pretrain_run_config)
-
-            pretrain_checkpoint = torch.load(os.path.join(wandb.config["training_config"]["initialization"], "best_val_dice.pth"))
-            model.load_state_dict(pretrain_checkpoint["model_state_dict"])
-            del pretrain_checkpoint
-        else:
-            model = Scaffold_UNet(wandb.config)
-    elif wandb.config["model_config"]["model"] == "classic_unet":
+    if wandb.config["training_config"]["model"] == "classic_unet":
         model = UNet(
             in_channels=1,
             out_channels=2
         )
-    elif wandb.config["model_config"]["model"] == "unet_plus_plus":
+    elif wandb.config["training_config"]["model"] == "unet_plus_plus":
         model = smp.UnetPlusPlus(
             in_channels=1,
             classes=2,
             encoder_weights=None,
             activation='sigmoid'
         )
-    elif wandb.config["model_config"]["model"] == "deeplab":
+    elif wandb.config["training_config"]["model"] == "deeplab":
         model = smp.DeepLabV3Plus(
             in_channels=1,
             classes=2,
@@ -294,4 +285,4 @@ if __name__ == "__main__":
         
         scheduler.step()
 
-    # Generate_Validation_Predictions_Comparison_Table(model=model, dataloader=validation_dataloader, run_config=wandb.config)
+    Generate_Validation_Predictions_Comparison_Table(model=model, dataloader=validation_dataloader, run_config=wandb.config)
