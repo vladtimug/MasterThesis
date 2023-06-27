@@ -16,19 +16,9 @@ def simple_normalization(image):
     return normalized_image
 
 def set_bounds(image,min_bound,max_bound):
-    """
-    Clip image to lower bound min_bound, upper bound max_bound.
-    """
     return np.clip(image, min_bound, max_bound)
 
-def normalize(image,use_bd=True,zero_center=True,unit_variance=True,supply_mode="orig"):
-    """
-    Perform standardization/normalization, i.e. zero_centering and Setting
-    the data to unit variance.
-    Input Arguments are self-explanatory except for:
-    supply_mode: Describes the type of LiTS-Data, i.e. whether it has been
-                 rescaled/resized or not. See >Basic_Parameter_Values<
-    """
+def normalize(image, use_bd=True, zero_center=True, unit_variance=True):
     min_bound, max_bound = None, None
     if not use_bd:
         min_bound = np.min(image)
@@ -48,19 +38,6 @@ def normalize(image,use_bd=True,zero_center=True,unit_variance=True,supply_mode=
     return image
 
 def rotate_2D(to_aug, rng=np.random.RandomState(1)):
-    """
-    Perform standard 2D-per-slice image rotation.
-    Arguments:
-    to_aug:     List of files that should be deformed in the same way. Each element
-                must be of standard Torch_Tensor shape: (C,W,H,...).
-                Deformation is done equally for each channel, but differently for
-                each image in a batch if N!=1.
-    rng:        Random Number Generator that can be provided for the Gaussian filter means.
-    copy_files: If True, copies the input files before transforming. Ensures that the actual
-                input data remains untouched. Otherwise, it is directly altered.
-
-    Function only returns data when copy_files==True.
-    """
     angle = (rng.rand()*2-1)*10
     for i,aug_file in enumerate(to_aug):
         for ch in range(aug_file.shape[0]):
@@ -69,20 +46,6 @@ def rotate_2D(to_aug, rng=np.random.RandomState(1)):
     return to_aug, angle
 
 def zoom_2D(to_aug, rng=np.random.RandomState(1)):
-    """
-    Perform standard 2D per-slice zooming/rescaling.
-    Arguments:
-    to_aug:     List of files that should be deformed in the same way. Each element
-                must be of standard Torch_Tensor shape: (N,C,W,H,...).
-                Deformation is done equally for each channel, but differently for
-                each image in a batch if N!=1.
-    rng:        Random Number Generator that can be provided for the Gaussian filter means.
-    copy_files: If True, copies the input files before transforming. Ensures that the actual
-                input data remains untouched. Otherwise, it is directly altered.
-
-    Function only returns data when copy_files==True.
-    Note: Should also work for 3D, but has not been tested for that.
-    """
     magnif = rng.uniform(0.825,1.175)
     for i,aug_file in enumerate(to_aug):
         for ch in range(aug_file.shape[0]):
@@ -108,20 +71,6 @@ def zoom_2D(to_aug, rng=np.random.RandomState(1)):
     return to_aug
 
 def hflip_2D(to_aug, rng=np.random.RandomState(1)):
-    """
-    Perform standard 2D per-slice horizontal_flipping.
-    Arguments:
-    to_aug:     List of files that should be deformed in the same way. Each element
-                must be of standard Torch_Tensor shape: (N,C,W,H,...).
-                Deformation is done equally for each channel, but differently for
-                each image in a batch if N!=1.
-    rng:        Random Number Generator that can be provided for the Gaussian filter means.
-    copy_files: If True, copies the input files before transforming. Ensures that the actual
-                input data remains untouched. Otherwise, it is directly altered.
-
-    Function only returns data when copy_files==True.
-    Note: Should also work for 3D, but has not been tested for that.
-    """
     for i,aug_file in enumerate(to_aug):
         for ch in range(aug_file.shape[0]):
             aug_file[ch,:]  = np.fliplr(aug_file[ch,:])
@@ -129,41 +78,13 @@ def hflip_2D(to_aug, rng=np.random.RandomState(1)):
     return to_aug
 
 def vflip_2D(to_aug, rng=np.random.RandomState(1)):
-    """
-    Perform standard 2D per-slice vertical flipping.
-    Arguments:
-    to_aug:     List of files that should be deformed in the same way. Each element
-                must be of standard Torch_Tensor shape: (N,C,W,H,...).
-                Deformation is done equally for each channel, but differently for
-                each image in a batch if N!=1.
-    rng:        Random Number Generator that can be provided for the Gaussian filter means.
-    copy_files: If True, copies the input files before transforming. Ensures that the actual
-                input data remains untouched. Otherwise, it is directly altered.
-
-    Function only returns data when copy_files==True.
-    Note: Should also work for 3D, but has not been tested for that.
-    """
     for i,aug_file in enumerate(to_aug):
         for ch in range(aug_file.shape[0]):
             aug_file[ch,:]  = np.flipud(aug_file[ch,:])
 
     return to_aug
 
-def augment_2D(to_aug, mode_dict=["rot","zoom"], copy_files=False, return_files=False, seed=1, is_mask=[0,1,0]):
-    """
-    Combine all augmentation methods to perform data augmentation (in 2D). Selection is done randomly.
-    Arguments:
-    to_aug:     List of files that should be deformed in the same way. Each element is a list with
-                Arrays of standard Torch_Tensor shape: (C,W,H,...).
-                Augmentation is done equally for each channel, but differently for
-                each image in a batch if N!=1.
-    mode_dict:  List of augmentation methods that should be used.
-    rng:        Random Number Generator that can be provided for the Gaussian filter means.
-    copy_files: If True, copies the input files before transforming. Ensures that the actual
-                input data remains untouched. Otherwise, it is directly altered.
-
-    Function only returns data when copy_files==True.
-    """
+def augment_2D(to_aug, mode_dict=["rot","zoom"], seed=1):
     rng = np.random.RandomState(seed)
     modes = []
 
@@ -183,28 +104,11 @@ def augment_2D(to_aug, mode_dict=["rot","zoom"], copy_files=False, return_files=
     return to_aug
 
 def get_crops_per_batch(batch_to_crop, idx_batch=None, crop_size=[128,128], seed=1):
-    """
-    Function to crop from input images.
-    Takes as input a list of same-shaped 3D/4D-arrays with Ch,W,H(,D). If an index-file
-    is supplied, crops will only be taken in and around clusters in the index file. If the index-file
-    contains no clusters, then a random crop will be taken.
-
-    Arguments:
-    batch_to_crop:      list of batches that need to be cropped. Note that cropping is performed independently for
-                        each image of a batch.
-    idx_batch:          Batch of same size as input batches. Contains either clusters (i.e. ones) from which a
-                        cluster-center will be sampled or None. In this case, the center will be randomly selected.
-                        If not None, prov_coords must be None. The idx_image should ahve shape (1,W,H).
-    crop_size:          Size of the crops to take -> len(crop_size) = input_batch.ndim-1, i.e. ignore batchdimension.
-    """
     rng = np.random.RandomState(seed)
 
     sup = list(1-np.array(crop_size)%2)
     bl_len = len(batch_to_crop)
     batch_list_to_return = []
-
-    ### Provide idx-list
-    batch_list_to_return_temp = [[] for i in range(len(batch_to_crop))]
 
     if idx_batch is not None:
         all_crop_idxs = np.where(idx_batch[0,:]==1) if np.sum(idx_batch[0,:])!=0 else [[]]
@@ -225,21 +129,13 @@ def get_crops_per_batch(batch_to_crop, idx_batch=None, crop_size=[128,128], seed
     return tuple(batch_list_to_return)
 
 def numpy_generate_onehot_matrix(matrix_mask, ndim):
-    """
-    Function to convert a mask array of shape W,H(,D) with values
-    in 0...C-1 to an array of shape C,W,H(,D). Works with numpy arrays.
-
-    Arguments:
-        matrix_mask:    Mask to convert.
-        ndim:           Number of additional one-hot dimensions.
-    """
     onehot_matrix = np.eye(ndim)[matrix_mask.reshape(-1).astype('int')].astype('int')
     data_shape    = list(matrix_mask.shape)
     data_shape[0] = ndim
     onehot_matrix = np.fliplr(np.flipud(onehot_matrix).T).reshape(*data_shape)
     return onehot_matrix
 
-def centroid(img, lcc=False):
+def centroid(img, lcc=True):
     if lcc:
         img = img.astype(np.uint8)
         nb_components, output, stats, centroids = cv.connectedComponentsWithStats(img, connectivity=4)
