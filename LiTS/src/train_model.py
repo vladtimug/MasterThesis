@@ -8,10 +8,10 @@ import pickle as pkl
 from tqdm import trange, tqdm
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
+from model_training.metrics import Metrics
+from model_training import constants, engine
 from model_training.dataset import LiTSDataset
 from model_training.models.classic_unet import UNet
-from model_training import constants, engine, metrics
-from model_training.preprocessing_utils import normalize
 from model_training.config.training_config import lesion_config as lesion_training_config
 from model_training.losses import MultiClassPixelWiseCrossEntropy, MultiClassCombined
 from plot_inference_results import plot_mask_vs_prediction
@@ -20,8 +20,8 @@ import matplotlib.pyplot as plt
 def Generate_Required_Datasets(config):
     rng = np.random.RandomState(config['seed'])
     vol_info = {}
-    vol_info['volume_slice_info'] = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_Volumes.csv',     header=0)
-    vol_info['target_mask_info']  = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LesionMasks.csv', header=0) if config['data'] == 'lesion' else pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverMasks.csv', header=0)
+    vol_info['volume_slice_info'] = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH + '/Assign_2D_Volumes.csv',     header=0)
+    vol_info['target_mask_info']  = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH + '/Assign_2D_LesionMasks.csv', header=0) if config['data'] == 'lesion' else pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverMasks.csv', header=0)
 
     if config['data']=='lesion':  vol_info['ref_mask_info']     = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverMasks.csv', header=0)
     if config['use_weightmaps']:  vol_info['weight_mask_info']  = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LesionWmaps.csv', header=0) if config['data'] == 'lesion' else pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverWmaps.csv', header=0)
@@ -41,18 +41,14 @@ def Generate_Required_Datasets(config):
 
 def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_config):
     # Log predictions table for samples in the validation split
-    table = wandb.Table(columns=['Volume', 'Slice', 'TumorMask', 'PredictionToMaskOverlap'], allow_mixed_types = True)
+    table = wandb.Table(columns=['Volume', 'Slice', 'TumorMask', 'TumorPrediction', 'DiceScore', 'IoUScore', 'PredictionToMaskOverlap'], allow_mixed_types = True)
     _ = model.eval()
 
     for idx, file_dict in tqdm(enumerate(dataloader), total = len(dataloader)):                
         # Handle model input   
         validation_slice = file_dict["input_images"]
-        if run_config["training_config"]["no_standardize"]:
-            model_input = normalize(validation_slice, unit_variance=False, zero_center=False)
-        else:
-            model_input = normalize(validation_slice)
-
-        model_input = model_input.type(torch.FloatTensor).to(run_config["device"])
+        
+        model_input = validation_slice.type(torch.FloatTensor).to(run_config["device"])
         
         # Compute model output
         model_output = model(model_input).data.cpu().numpy()
@@ -64,7 +60,7 @@ def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_conf
             prediction_mask = np.argmax(np.round(model_output))[0].astype(np.uint8)
 
         # Prepare Scan Slice for Visualization
-        validation_slice = validation_slice.detach().cpu().numpy()[0, 0]
+        validation_slice = validation_slice.data.cpu().numpy()[0, 0]
 
         # Prepare Annotated Mask for Visualization
         validation_mask = validation_mask  = file_dict["targets"][0, 0].numpy().astype(np.uint8)
@@ -74,6 +70,9 @@ def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_conf
         slice_name = validation_sample_path.split("/")[-1]
         volume_name = validation_sample_path.split("/")[-2]
         mask_flag = True if np.count_nonzero(validation_mask) != 0 else False
+        prediction_flag = True if np.count_nonzero(prediction_mask) != 0 else False
+        dice_score = Metrics.Dice(prediction_mask, validation_mask)
+        iou_score = Metrics.IoU(prediction_mask, validation_mask)
         comparison_figure = plot_mask_vs_prediction(validation_slice, validation_mask, prediction_mask, "", figure_title=volume_name + " " + slice_name, save_fig=False)
         log_image = wandb.Image(comparison_figure)
         plt.close(comparison_figure)
@@ -82,6 +81,9 @@ def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_conf
             volume_name,
             slice_name,
             mask_flag,
+            prediction_flag,
+            dice_score,
+            iou_score,
             log_image
         )
 
@@ -90,10 +92,17 @@ def Generate_Validation_Predictions_Comparison_Table(model, dataloader, run_conf
 if __name__ == "__main__":
     # Logging Infrastructure
     preprocessing_tag = "polar" if lesion_training_config["polar_training"] else "carthesian"
-
+    complexity_tag = None
+    if lesion_training_config["lr"] == 1e-3 and lesion_training_config["l2_reg"] == 0 and lesion_training_config["gamma"] == 1:
+        complexity_tag = "baseline"
+    elif lesion_training_config["lr"] == 3e-5 and lesion_training_config["l2_reg"] == 1e-4 and lesion_training_config["gamma"] == 0.1:
+        complexity_tag = "optimized"
+    else:
+        raise Exception("Unexpected training config")
+    
     run = wandb.init(
         project="LiTS_2D_UNet_e1",
-        tags=[lesion_training_config["model"], preprocessing_tag]
+        tags=[lesion_training_config["model"], preprocessing_tag, complexity_tag],
     )
     
     # Configs
@@ -196,7 +205,6 @@ if __name__ == "__main__":
 
     # Training Loop Setup
     training_epochs = trange(wandb.config["training_config"]["num_epochs"], position=1)
-    has_crop = wandb.config["training_config"]["data"] == "lession"
 
     for epoch in training_epochs:
         
@@ -227,8 +235,20 @@ if __name__ == "__main__":
         torch.cuda.empty_cache()
 
         # Save Training/Best Validation Checkpoint
+        training_model_checkpoint_parameters = {
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
+            "training_loss": metrics["train_loss"][-1]
+        }
+        torch.save(
+                obj=training_model_checkpoint_parameters,
+                f=os.path.join(wandb.run.dir, "latest_epoch_model.pth")
+            )
+        
         if metrics["val_dice"][-1] > metrics["best_val_dice"]:
-            checkpoint_parameters = {
+            best_validation_model_checkpoint_parameters = {
                 "epoch": epoch,
                 "model_state_dict": model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
@@ -252,7 +272,7 @@ if __name__ == "__main__":
             }
 
             torch.save(
-                obj=checkpoint_parameters,
+                obj=best_validation_model_checkpoint_parameters,
                 f=os.path.join(wandb.run.dir, "best_val_dice.pth")
             )
 
@@ -277,7 +297,6 @@ if __name__ == "__main__":
                 "val_recall": metrics["val_recall"][-1],
                 "val_specificity": metrics["val_specificity"][-1],
                 "val_auc_score": metrics["val_auc_score"][-1],
-                "learning_rate": scheduler.get_last_lr()
             }
         )
 

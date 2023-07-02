@@ -225,7 +225,7 @@ class IRCADB_Dataset(Dataset):
             next_volume = current_volume
 
         # Preprocess slice and corresponding mask
-        slice_data = preprocessing_utils.normalize(preprocessing_utils.reorient_to_match_training(np.load(slice_entry["Slice Path"])), zero_center=False, unit_variance=False)
+        slice_data = preprocessing_utils.normalize(preprocessing_utils.reorient_to_match_training(np.load(slice_entry["Slice Path"])))
         slice_data = np.expand_dims(slice_data, 0)
 
         mask_data = np.load(mask_entry["Slice Path"])
@@ -274,7 +274,7 @@ class ACADTUM_Dataset(Dataset):
             next_volume = current_volume
 
         # Preprocess slice and corresponding mask
-        slice_data = preprocessing_utils.normalize((np.load(slice_entry["Slice Path"])), zero_center=False, unit_variance=False)
+        slice_data = preprocessing_utils.normalize((np.load(slice_entry["Slice Path"])))
         slice_data = np.expand_dims(slice_data, 0)
 
         mask_data = np.load(mask_entry["Slice Path"])

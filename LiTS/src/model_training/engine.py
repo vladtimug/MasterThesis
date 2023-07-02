@@ -45,15 +45,14 @@ def model_trainer(model_setup, data_loader, loss_func, device, metrics_idx, metr
         optimizer.step()
 
         ### GET SCORES ###
-        # iter_probs_collect.append(np.max(model_output.detach().cpu().numpy(), axis=1))
         max_predicted_probs, max_predicted_probs_idx = torch.max(model_output, dim=1)
         iter_probs_collect.append(max_predicted_probs)
         iter_preds_collect.append(max_predicted_probs_idx)
         iter_target_collect.append(training_mask)
         iter_loss_collect.append(loss.item())
-
+        
+        ### Compute Metrics of collected training samples
         if slice_idx % metrics_idx == 0 and slice_idx != 0:
-            ### Compute Metrics of collected training samples
             probabilities_predictions = torch.vstack(iter_probs_collect).flatten()
             class_predictions = torch.vstack(iter_preds_collect).flatten()
             labels = torch.vstack(iter_target_collect).flatten()
