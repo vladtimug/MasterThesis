@@ -7,8 +7,8 @@ import segmentation_models_pytorch as smp
 def parse_arguments():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--model_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_13/")
-    parser.add_argument("--model_arch", type=str, default="deeplabv3+")
+    parser.add_argument("--model_path", type=str, default="./LiTS/experiments_data/set_6_1/experiment_1/")
+    parser.add_argument("--model_arch", type=str, default="deeplabv3+")     # classic_unet, unet++, deeplabv3+
 
     script_arguments = parser.parse_args()
     return script_arguments
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     input_data   = torch.randn((1, input_channels, *input_shape)).type(torch.FloatTensor)
 
     # Instantiate model & set its state dict
-    if args.model_arch == "unet":
+    if args.model_arch == "classic_unet":
         model = UNet(
             in_channels=1,
             out_channels=2

@@ -1,15 +1,15 @@
 lesion_config = {
-    "model": "classic_unet",	# Available options: classic_unet, unet_plus_plus, deeplab
+    "model": "deeplab",	# Available options: classic_unet, unet_plus_plus, deeplab
 	"data": "lesion",
 	"polar_training": False,
-	"num_epochs": 100,
-	"lr": 3e-05,
-	"l2_reg": 1e-04,
+	"num_epochs": 50,
+	"lr": 1e-03,
+	"l2_reg": 0,
 	"gpu": 0,
 	"num_workers": 8,
 	"batch_size": 64,
 	"step_size": [30, 60, 90],
-	"gamma": 0.1,
+	"gamma": 1,
 	"crop_size": [256, 256],
 	"perc_data": 1,
 	"train_val_split": 0.9,

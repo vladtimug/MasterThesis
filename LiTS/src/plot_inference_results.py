@@ -5,31 +5,35 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from glob import glob
 from model_training.preprocessing_utils import normalize, reorient_to_match_training
+from model_training import constants
 
 def parse_script_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--test_data_dir_root_path",
         type=str, help="Path to the root directory of the test dataset",
-        default="/home/tvlad/Downloads/test_dataset/Test_Data_3Dircadb1/"
+        default="/home/tvlad/Downloads/test_dataset_3DIRCADB/Test_Data_3Dircadb1/"
     )
     
     parser.add_argument(
         "--inference_dir_root_path",
         type=str, help="Path to the root directory of the test dataset inference results",
-        default="/home/tvlad/Projects/MasterThesis/LiTS/experiments_data/set_4/lesion/experiment_9/test_results/"
+        default="/home/tvlad/Projects/MasterThesis/LiTS/experiments_data/set_6_1/experiment_2/test_results_3DIRCADB_Positive/"
     )
 
     parser.add_argument(
         "--output_dir_path",
         type=str, help="Path to the root directory where results will be stored",
-        default="/home/tvlad/Projects/MasterThesis/LiTS/experiments_data/set_4/lesion/experiment_9/test_results_viz_1/"
+        default="/home/tvlad/Projects/MasterThesis/LiTS/experiments_data/set_6_1/experiment_2/test_results_3DIRCADB_Positive_viz/"
     )
 
     return parser.parse_args()
 
-def plot_mask_vs_prediction(scan_slice, mask, prediction, save_path, figure_title):
-    multi_channel_slice = np.stack(3 * [scan_slice], axis=2)
+def plot_mask_vs_prediction(scan_slice, mask, prediction, save_path, figure_title, save_fig=True):
+    if np.min(scan_slice) < 0.:
+        multi_channel_slice = np.stack(3 * [(scan_slice * constants.LITS_DATASET_STD) + constants.LITS_DATASET_MEAN], axis=2)
+    else:
+        multi_channel_slice = np.stack(3 * [scan_slice], axis=2)
 
     # true positive predictions = green
     intersection = mask * prediction
@@ -39,7 +43,7 @@ def plot_mask_vs_prediction(scan_slice, mask, prediction, save_path, figure_titl
     multi_channel_slice[np.nonzero((mask == 0) * (prediction == 1))] = (1.0, 0.0, 0.0)
 
     # false negative prediction = blue
-    multi_channel_slice[np.nonzero((mask == 1) * (prediction == 0))] = (0.0, 0.0, 1.0)
+    multi_channel_slice[np.nonzero((mask == 1) * (prediction == 0))] = (0.0, 1.0, 1.0)
 
     plt.tight_layout()
     fig, axs = plt.subplots(2, 2, figsize=(10, 10))
@@ -60,10 +64,14 @@ def plot_mask_vs_prediction(scan_slice, mask, prediction, save_path, figure_titl
     plt.legend(handles=[
         mpatches.Patch(color="lawngreen", label="True Positives"),
         mpatches.Patch(color="red", label="False Positives"),
-        mpatches.Patch(color="blue", label="False Negatives")
+        mpatches.Patch(color="cyan", label="False Negatives")
         ])
-    plt.savefig(save_path)
-    plt.close()
+    
+    if save_fig:
+        plt.savefig(save_path)
+        plt.close()
+    else:
+        return fig
 
 if __name__ == "__main__":
     script_args = parse_script_arguments()
@@ -71,8 +79,8 @@ if __name__ == "__main__":
     if not os.path.exists(script_args.output_dir_path):
         os.mkdir(script_args.output_dir_path)
 
-    MASKS_FILENAME = "2D_LesionMasks.csv"
-    VOLUMES_FILENAME = "2D_Volumes.csv"
+    MASKS_FILENAME = "2D_LesionMasks_Positive.csv"
+    VOLUMES_FILENAME = "2D_Volumes_Positive.csv"
     MASKS_DIRNAME = "LesionMasks"
     VOLUMES_DIRNAME = "Volumes"
 

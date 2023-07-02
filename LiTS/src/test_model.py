@@ -1,16 +1,17 @@
 import numpy as np
-from model_training import metrics
-from model_training.dataset import IRCADB_Dataset
+from model_training.metrics import Metrics
+from model_training.dataset import IRCADB_Dataset, ACADTUM_Dataset
 import onnx, onnxruntime, torch, os, argparse, csv, tqdm
 from model_training.preprocessing_utils import centroid, to_polar, to_cart
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_filename", type=str, default="test_metrics.csv")
-    parser.add_argument("--carthesian_experiment_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_12/")
-    parser.add_argument("--polar_experiment_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_13/")
-    parser.add_argument("--mode", type=str, default="carthesian")
-    parser.add_argument("--output_directory_path", type=str, default="./LiTS/experiments_data/set_6/lesion/experiment_12/test_results/")
+    parser.add_argument("--carthesian_experiment_path", type=str, default="./LiTS/experiments_data/set_6_1/experiment_1/")
+    parser.add_argument("--polar_experiment_path", type=str, default="./LiTS/experiments_data/set_6_1/experiment_2/")
+    parser.add_argument("--mode", type=str, default="polar")   # carthesian or polar
+    parser.add_argument("--output_directory_path", type=str, default="./LiTS/experiments_data/set_6_1/experiment_2/test_results_ACADTUM_Positive/")
+    parser.add_argument("--dataset", type=str, default="ACADTUM")  # 3DIRCADB, ACADTUM
 
     return parser.parse_args()
 
@@ -48,15 +49,22 @@ def polar_inference(carthesian_inf_session, polar_inf_session, scan_slice):
 
 if __name__ == "__main__":
     # Load test dataset and create dataloader
-    test_dataset = IRCADB_Dataset(root_path="../../Downloads/test_dataset/Test_Data_3Dircadb1/")
-    test_dataloader = torch.utils.data.DataLoader(
-        dataset=test_dataset,
-        batch_size=1,
-        num_workers=0,
-        shuffle=False
-    )
 
     script_arguments = parse_arguments()
+
+    if script_arguments.dataset == "3DIRCADB":
+        test_dataset = IRCADB_Dataset(root_path="../../Downloads/test_dataset_3DIRCADB/Test_Data_3Dircadb1/")
+    elif script_arguments.dataset == "ACADTUM":
+        test_dataset = ACADTUM_Dataset(root_path="../../Downloads/test_dataset_ACADTUM")
+    else:
+        raise NotImplementedError(f"Unknown argument: {script_arguments.dataset}")
+    
+    test_dataloader = torch.utils.data.DataLoader(
+            dataset=test_dataset,
+            batch_size=1,
+            num_workers=0,
+            shuffle=False
+        )
 
     # Load carthesian and polar inference sessions
     if script_arguments.mode == "carthesian":
@@ -110,15 +118,15 @@ if __name__ == "__main__":
 
             iter_preds_collect, iter_target_collect, iter_probs_collect = [], [], []
 
-            true_negatives, false_positives, false_negatives, true_positives = metrics.ConfusionMatrix(class_predictions, labels).ravel()
+            true_negatives, false_positives, false_negatives, true_positives = Metrics.ConfusionMatrix(class_predictions, labels).ravel()
             
-            mini_dice = metrics.Dice2(true_positives, false_positives, false_negatives)
-            mini_iou = metrics.IoU2(true_positives, false_positives, false_negatives)
-            mini_accuracy = metrics.Accuracy(true_positives, true_negatives, false_positives, false_negatives)
-            mini_precision = metrics.Precision(true_positives, false_positives)
-            mini_recall = metrics.Recall(true_positives, false_negatives)
-            mini_specificity = metrics.Specificity(true_negatives, false_positives)
-            mini_auc_score = metrics.AuC(labels, probabilities_predictions)
+            mini_dice = Metrics.Dice2(true_positives, false_positives, false_negatives)
+            mini_iou = Metrics.IoU2(true_positives, false_positives, false_negatives)
+            mini_accuracy = Metrics.Accuracy(true_positives, true_negatives, false_positives, false_negatives)
+            mini_precision = Metrics.Precision(true_positives, false_positives)
+            mini_recall = Metrics.Recall(true_positives, false_negatives)
+            mini_specificity = Metrics.Specificity(true_negatives, false_positives)
+            mini_auc_score = Metrics.AuC(labels, probabilities_predictions)
 
             test_metrics_ledger.writerow([test_item['volume'][0], mini_dice, mini_iou, mini_precision, mini_accuracy, mini_recall, mini_specificity, mini_auc_score])
 
