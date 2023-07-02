@@ -32,9 +32,9 @@ def normalize(image, use_bd=True, zero_center=True, unit_variance=True):
     image = np.clip(image,0.,1.)
     
     if zero_center:
-        image = image - constants.DATASET_MEAN
+        image = image - constants.LITS_DATASET_MEAN
     if unit_variance:
-        image = image / constants.DATASET_STD
+        image = image / constants.LITS_DATASET_STD
     return image
 
 def rotate_2D(to_aug, rng=np.random.RandomState(1)):
@@ -106,7 +106,7 @@ def augment_2D(to_aug, mode_dict=["rot","zoom"], seed=1):
 def get_crops_per_batch(batch_to_crop, idx_batch=None, crop_size=[128,128], seed=1):
     rng = np.random.RandomState(seed)
 
-    sup = list(1-np.array(crop_size)%2)
+    sup = list(1 - np.array(crop_size)%2)
     bl_len = len(batch_to_crop)
     batch_list_to_return = []
 
@@ -119,7 +119,7 @@ def get_crops_per_batch(batch_to_crop, idx_batch=None, crop_size=[128,128], seed
         if idx_batch is not None:
             crop_idx = [np.clip(rng.choice(ax),crop_size[i]//2-1,batch_to_crop[0][:].shape[i+1]-crop_size[i]//2-1) for i,ax in enumerate(all_crop_idxs)]
     else:
-        crop_idx = [rng.randint(crop_size[i]//2-1,np.array(batch_to_crop[0].shape[i+1])-crop_size[i]//2-1) for i in range(batch_to_crop[0].ndim-1)]
+        crop_idx = [rng.randint(crop_size[i] // 2 - 1, np.array(batch_to_crop[0].shape[i+1]) - crop_size[i] // 2 - 1) for i in range(batch_to_crop[0].ndim - 1)]
     
     crop_coordinates = [(center - crop_size[i] // 2 + mv, center + crop_size[i] // 2 + 1) for i, (center, mv) in enumerate(zip(list(crop_idx),sup))]
     
