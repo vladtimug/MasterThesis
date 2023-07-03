@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
 from model_training.metrics import Metrics
 from model_training import constants, engine
-from model_training.dataset import LiTSDataset
+from dataset_preparation.lits_dataset import LiTSDataset
 from model_training.training_config import lesion_config as lesion_training_config
 from model_training.losses import MultiClassPixelWiseCrossEntropy, MultiClassCombined
 from plot_inference_results import plot_mask_vs_prediction

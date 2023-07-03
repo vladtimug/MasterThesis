@@ -1,6 +1,7 @@
 import numpy as np
 from model_training.metrics import Metrics
-from model_training.dataset import IRCADB_Dataset, ACADTUM_Dataset
+from dataset_preparation.ircadb_dataset import IRCADB_Dataset
+from dataset_preparation.acadtum_dataset import ACADTUM_Dataset
 import onnx, onnxruntime, torch, os, argparse, csv, tqdm
 from model_training.preprocessing_utils import centroid, to_polar, to_cart
 
