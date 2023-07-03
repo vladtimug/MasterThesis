@@ -13,14 +13,11 @@ LITS_DATASET_MEAN = 0.1021
 LITS_DATASET_STD = 0.19177
 
 # ACADTUM Pixel mean after normalization over full dataset
-LITS_DATASET_MEAN = 0.1085
+ACADTUM_DATASET_MEAN = 0.1085
 
 # ACADTUM Pixel std after normalization over full dataset
-LITS_DATASET_STD = 0.16864
+ACADTUM_DATASET_STD = 0.16864
 
-ROOT_PREPROCESSED_TRAINING_DATA_PATH = "../unet-lits-2d-pipeline/LOADDATA/Training_Data_2D/"
-ROOT_PREPROCESSED_TEST_DATA_PATH = "../unet-lits-2d-pipeline/LOADDATA/Test_Data_2D/"
-
-ALPHA_VALUE = 0.05
+ROOT_PREPROCESSED_TRAINING_DATA_PATH = "/home/tvlad/Downloads/training_data_LiTS"
 
 EPSILON = 1e-6
