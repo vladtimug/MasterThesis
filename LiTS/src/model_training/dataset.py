@@ -31,9 +31,7 @@ class LiTSDataset(Dataset):
                     'Input_Image_Paths':[],
                     'Has Target Mask':[],
                     'Wmap_Paths':[],
-                    'TargetMask_Paths':[],
-                    'Has Ref Mask':[],
-                    'RefMask_Paths':[]
+                    'TargetMask_Paths':[]
                 } for key in self.available_volumes
             }
         
@@ -50,52 +48,40 @@ class LiTSDataset(Dataset):
                 self.div_in_volumes[vol]['Has Target Mask'].append(volume_info['target_mask_info']['Has Mask'][i])
                 if self.config['use_weightmaps']: self.div_in_volumes[vol]['Wmap_Paths'].append(volume_info['weight_mask_info']['Slice Path'][i])
                 self.div_in_volumes[vol]['TargetMask_Paths'].append(volume_info['target_mask_info']['Slice Path'][i])
-                if self.config['data']=='lesion': self.div_in_volumes[vol]['Has Ref Mask'].append(volume_info['ref_mask_info']['Has Mask'][i])
-                if self.config['data']=='lesion': self.div_in_volumes[vol]['RefMask_Paths'].append(volume_info['ref_mask_info']['Slice Path'][i])
 
         self.volume_details = {
             key: {
                     'Input_Image_Paths':[],
                     'TargetMask_Paths':[],
-                    'Wmap_Paths':[],
-                    'RefMask_Paths':[]
+                    'Wmap_Paths':[]
                 } for key in self.available_volumes
             }
 
         # Populate dictionary with all necessary data for training
         for i,vol in enumerate(self.div_in_volumes.keys()):
             for j in range(len(self.div_in_volumes[vol]['Input_Image_Paths'])):
-                crop_condition = np.sum(self.div_in_volumes[vol]['Has Ref Mask'][int(np.clip(j-self.rvic, 0, None)):j+self.rvic])
+                extra_ch = self.channel_size//2
+                low_bound, low_diff = np.clip(j-extra_ch,0,None).astype(int), extra_ch-j
+                up_bound, up_diff = np.clip(j+extra_ch+1,None,len(self.div_in_volumes[vol]["Input_Image_Paths"])).astype(int), j+extra_ch+1-len(self.div_in_volumes[vol]["Input_Image_Paths"])
+
+                vol_slices = self.div_in_volumes[vol]["Input_Image_Paths"][low_bound:up_bound]
+
+                if low_diff > 0:
+                    extra_slices = self.div_in_volumes[vol]["Input_Image_Paths"][low_bound+1:low_bound+1+low_diff][::-1]
+                    vol_slices = extra_slices + vol_slices
                 
-                if self.config['data']=='liver':
-                    crop_condition = True
+                if up_diff > 0:
+                    extra_slices = self.div_in_volumes[vol]["Input_Image_Paths"][up_bound-up_diff-1:up_bound-1][::-1]
+                    vol_slices = vol_slices + extra_slices
 
-                if crop_condition:
-                    extra_ch = self.channel_size//2
-                    low_bound, low_diff = np.clip(j-extra_ch,0,None).astype(int), extra_ch-j
-                    up_bound, up_diff = np.clip(j+extra_ch+1,None,len(self.div_in_volumes[vol]["Input_Image_Paths"])).astype(int), j+extra_ch+1-len(self.div_in_volumes[vol]["Input_Image_Paths"])
+                self.volume_details[vol]['Input_Image_Paths'].append(vol_slices)
+                self.volume_details[vol]['TargetMask_Paths'].append(self.div_in_volumes[vol]['TargetMask_Paths'][j])
 
-                    vol_slices = self.div_in_volumes[vol]["Input_Image_Paths"][low_bound:up_bound]
+                if self.config['use_weightmaps']:
+                    self.volume_details[vol]['Wmap_Paths'].append(self.div_in_volumes[vol]['Wmap_Paths'][j])
 
-                    if low_diff > 0:
-                        extra_slices = self.div_in_volumes[vol]["Input_Image_Paths"][low_bound+1:low_bound+1+low_diff][::-1]
-                        vol_slices = extra_slices + vol_slices
-                    
-                    if up_diff > 0:
-                        extra_slices = self.div_in_volumes[vol]["Input_Image_Paths"][up_bound-up_diff-1:up_bound-1][::-1]
-                        vol_slices = vol_slices + extra_slices
-
-                    self.volume_details[vol]['Input_Image_Paths'].append(vol_slices)
-                    self.volume_details[vol]['TargetMask_Paths'].append(self.div_in_volumes[vol]['TargetMask_Paths'][j])
-
-                    if self.config['data'] != 'liver':
-                        self.volume_details[vol]['RefMask_Paths'].append(self.div_in_volumes[vol]['RefMask_Paths'][j])
-                    
-                    if self.config['use_weightmaps']:
-                        self.volume_details[vol]['Wmap_Paths'].append(self.div_in_volumes[vol]['Wmap_Paths'][j])
-
-                    type_key = 'Pos' if self.div_in_volumes[vol]['Has Target Mask'][j] else 'Neg'
-                    self.input_samples[type_key].append((vol, len(self.volume_details[vol]['Input_Image_Paths']) - 1))
+                type_key = 'Pos' if self.div_in_volumes[vol]['Has Target Mask'][j] else 'Neg'
+                self.input_samples[type_key].append((vol, len(self.volume_details[vol]['Input_Image_Paths']) - 1))
 
         self.n_files  = np.sum([len(self.input_samples[key]) for key in self.input_samples.keys()])
         self.curr_vol = self.input_samples['Pos'][0][0] if len(self.input_samples['Pos']) else self.input_samples['Neg'][0][0]
@@ -127,9 +113,6 @@ class LiTSDataset(Dataset):
         #Lesion/Liver Mask to output
         target_mask = np.load(self.volume_details[vol]["TargetMask_Paths"][idx])
         target_mask = np.expand_dims(target_mask, 0)
-
-        #Liver Mask to use for defining training region of interest
-        crop_mask = np.expand_dims(np.load(self.volume_details[vol]["RefMask_Paths"][idx]),0) if self.config['data']=='lesion' else None
         
         #Weightmap to output
         weightmap = np.expand_dims(np.load(self.volume_details[vol]["Wmap_Paths"][idx]),0).astype(float) if self.config['use_weightmaps'] else None
@@ -138,8 +121,6 @@ class LiTSDataset(Dataset):
         files_to_crop  = [input_image, target_mask]
         if weightmap is not None:
             files_to_crop.append(weightmap)
-        if crop_mask is not None:
-            files_to_crop.append(crop_mask)
 
         #First however, augmentation, if required, is performed (i.e. on fullsize images to remove border artefacts in crops).
         if len(self.config["augment"]) and not self.is_validation:
@@ -149,11 +130,10 @@ class LiTSDataset(Dataset):
         #If Cropping is required, we crop now.
         if len(self.config['crop_size']) and not self.is_validation:
             #Add imaginary batch axis in gu.get_crops_per_batch
-            crops_for_picked_batch  = preprocessing_utils.get_crops_per_batch(files_to_crop, crop_mask, crop_size=self.config['crop_size'], seed=self.rng.randint(0,1e8))
+            crops_for_picked_batch  = preprocessing_utils.get_crops_per_batch(files_to_crop, crop_size=self.config['crop_size'], seed=self.rng.randint(0,1e8))
             input_image     = crops_for_picked_batch[0]
             target_mask     = crops_for_picked_batch[1]
             weightmap       = crops_for_picked_batch[2] if weightmap is not None else None
-            crop_mask       = crops_for_picked_batch[-1] if crop_mask is not None else None
 
         one_hot_target = preprocessing_utils.numpy_generate_onehot_matrix(target_mask, self.config['num_classes']) if self.config['require_one_hot'] else None
 
@@ -173,7 +153,6 @@ class LiTSDataset(Dataset):
             # Transform to polar cooridnates
             input_image = np.expand_dims(preprocessing_utils.to_polar(input_image[0], roi_centroid), 0)
             target_mask = np.expand_dims(preprocessing_utils.to_polar(target_mask[0], roi_centroid), 0)
-            crop_mask = np.expand_dims(preprocessing_utils.to_polar(crop_mask[0], roi_centroid), 0) if crop_mask is not None else None
             weightmap = np.expand_dims(preprocessing_utils.to_polar(weightmap[0], roi_centroid), 0) if weightmap is not None else None
             if one_hot_target is not None:
                 converted_to_polar = []
@@ -185,7 +164,6 @@ class LiTSDataset(Dataset):
         return_dict = {
             "input_images":input_image.astype(np.float32),
             "targets":target_mask.astype(np.float32),
-            "crop_option":crop_mask.astype(np.float32) if crop_mask is not None else None,
             "weightmaps":weightmap.astype(np.float32) if weightmap is not None else None,
             "one_hot_targets": one_hot_target.astype(np.float32),
             'internal_slice_name':intvol,
