@@ -6,13 +6,13 @@ import numpy as np
 import pandas as pd
 import pickle as pkl
 from tqdm import trange, tqdm
+from models.classic_unet import UNet
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
 from model_training.metrics import Metrics
 from model_training import constants, engine
 from model_training.dataset import LiTSDataset
-from model_training.models.classic_unet import UNet
-from model_training.config.training_config import lesion_config as lesion_training_config
+from model_training.training_config import lesion_config as lesion_training_config
 from model_training.losses import MultiClassPixelWiseCrossEntropy, MultiClassCombined
 from plot_inference_results import plot_mask_vs_prediction
 import matplotlib.pyplot as plt
@@ -23,7 +23,6 @@ def Generate_Required_Datasets(config):
     vol_info['volume_slice_info'] = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH + '/Assign_2D_Volumes.csv',     header=0)
     vol_info['target_mask_info']  = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH + '/Assign_2D_LesionMasks.csv', header=0) if config['data'] == 'lesion' else pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverMasks.csv', header=0)
 
-    if config['data']=='lesion':  vol_info['ref_mask_info']     = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverMasks.csv', header=0)
     if config['use_weightmaps']:  vol_info['weight_mask_info']  = pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LesionWmaps.csv', header=0) if config['data'] == 'lesion' else pd.read_csv(constants.ROOT_PREPROCESSED_TRAINING_DATA_PATH+'/Assign_2D_LiverWmaps.csv', header=0)
 
     available_volumes = sorted(list(set(np.array(vol_info['volume_slice_info']['Volume']))), key=lambda x: int(x.split('-')[-1]))
@@ -33,7 +32,6 @@ def Generate_Required_Datasets(config):
     train_val_split     = int(percentage_data_len*config['train_val_split'])
     training_volumes    = available_volumes[:percentage_data_len][:train_val_split]
     validation_volumes  = available_volumes[:percentage_data_len][train_val_split:]
-
 
     training_dataset   = LiTSDataset(vol_info, training_volumes, config)
     validation_dataset = LiTSDataset(vol_info, validation_volumes, config, is_validation=True)
