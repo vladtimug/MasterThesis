@@ -1,7 +1,7 @@
 import os
 import torch
 import argparse
-from model_training.models.classic_unet import UNet
+from models.classic_unet import UNet
 import segmentation_models_pytorch as smp
 
 def parse_arguments():
