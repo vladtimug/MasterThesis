@@ -1,5 +1,5 @@
 # Directories
-LiTS/experiments_data/*
+experiments_data/*
 .vscode/
 wandb/
 __pycache__/

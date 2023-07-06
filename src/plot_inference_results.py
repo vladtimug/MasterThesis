@@ -88,6 +88,7 @@ if __name__ == "__main__":
     volume_slices = pd.read_csv(os.path.join(script_args.test_data_dir_root_path, VOLUMES_FILENAME), header=0)
     
     available_volumes = pd.unique(volume_masks["Volume"])
+    # available_volumes = os.listdir("/home/tvlad/Projects/MasterThesis/LiTS/experiments_data/set_3_1/experiment_1/test_results_ACADTUM_Positive/")[1:]
     for volume_name in tqdm.tqdm(available_volumes, total=len(available_volumes)):
         # Create output directory
         output_volume_dir_path = os.path.join(script_args.output_dir_path, volume_name)

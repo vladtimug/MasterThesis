@@ -9,10 +9,10 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--results_filename", type=str, default="test_metrics.csv")
     parser.add_argument("--carthesian_experiment_path", type=str, default="./LiTS/experiments_data/set_6_1/experiment_1/")
-    parser.add_argument("--polar_experiment_path", type=str, default="./LiTS/experiments_data/set_6_1/experiment_2/")
+    parser.add_argument("--polar_experiment_path", type=str, default="./LiTS/experiments_data/set_4_1/experiment_2/")
     parser.add_argument("--mode", type=str, default="polar")   # carthesian or polar
-    parser.add_argument("--output_directory_path", type=str, default="./LiTS/experiments_data/set_6_1/experiment_2/test_results_ACADTUM_Positive/")
-    parser.add_argument("--dataset", type=str, default="ACADTUM")  # 3DIRCADB, ACADTUM
+    parser.add_argument("--output_directory_path", type=str, default="./LiTS/experiments_data/set_4_1/experiment_2/test_results_3DIRCADB_Positive_Combined/")
+    parser.add_argument("--dataset", type=str, default="3DIRCADB")  # 3DIRCADB, ACADTUM
 
     return parser.parse_args()
 
