@@ -100,7 +100,6 @@ if __name__ == "__main__":
                 scan_data = pydicom.dcmread(os.path.join(masks_scan_path, slice_name))
                 np.save(os.path.join(npy_masks_path, slice_name), scan_data.pixel_array)
 
-    # @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
     volume_scans = sorted(glob(f"{script_args.path_2_training_volumes}/3Dircadb*"), key=lambda path: int(path.split(".")[-1]))
 
     if not os.path.exists(script_args.output_path):
