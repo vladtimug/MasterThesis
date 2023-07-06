@@ -4,17 +4,6 @@ import pandas as pd
 import scipy.ndimage as ndi
 import cv2 as cv
 
-def simple_normalization(image):
-    """
-    Perform data normalization for CT scan
-    """
-    min_bound = float(constants.MIN_BOUND)  # min_bound is -100
-    max_bound = float(constants.MAX_BOUND)  # max_bound is 400
-    bounded_image = np.clip(image, min_bound, max_bound)
-    normalized_image = (bounded_image - min_bound) / (max_bound - min_bound)
-    normalized_image = np.clip(normalized_image,0.,1.)
-    return normalized_image
-
 def set_bounds(image,min_bound,max_bound):
     return np.clip(image, min_bound, max_bound)
 
