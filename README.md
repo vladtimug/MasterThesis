@@ -1,4 +1,4 @@
-# Semantic Segmentation of Liver Tumors using Polar Transformations
+# Liver Tumors Semantic Segmentation From CT Scans Using Polar Transformations
 
 ## Overview
 Focus of the project is on the impact of polar transformations on the performance of liver tumors semantic segmentation using Deep Convolutional Neural Networks, similar to [\[1\]][1].
