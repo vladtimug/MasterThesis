@@ -14,10 +14,12 @@ All models have been trained from scratch (no transfer learning has been done) u
 The training configuration is defined in the './src/model_training/training_config.py' file.
 Training experiments have been handled, logged and monitored using the W&B service.
 
-Each has been trained in two separate settings: the carthesian setting and the polar setting, each of which are displayed in the diagrams below.
+Each model has been trained in two separate settings: the carthesian setting and the polar setting, each of which are displayed in the diagrams below.
 
+Carthesian Model Training Pipeline
 ![diagram1](https://github.com/vladtimug/MasterThesis/assets/44322734/283257c3-5427-4bf1-9b15-fd77d76a47a3)
 
+Polar Model Training Pipeline
 ![diagram2](https://github.com/vladtimug/MasterThesis/assets/44322734/c5bd7525-1068-4e10-8dba-f9c3afbd0b94)
 
 For the polar setting, the polar transformation was applied using as polar origin the center of mass of the biggest annotated blob in the corresponding mask for each CT scan slice.
