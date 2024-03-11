@@ -32,12 +32,20 @@ For the polar setting, the polar transformation was applied using as polar origi
 | U-Net++ | 75.48% |
 | DeepLabV3+ | 80.92% |
 
-### Polar Models
+### Polar Models - Test Set-up 1
 | Model | Average Test Dice Score |
 | :---:   | :---: |
 | U-Net | 64.12%   |
 | U-Net++ | 67.26% |
 | DeepLabV3+ | 52.22% |
+
+
+### Polar Models - Test Set-up 2
+| Model | Average Test Dice Score |
+| :---:   | :---: |
+| U-Net | 69.03%   |
+| U-Net++ | 79.67% |
+| DeepLabV3+ | 59.99% |
 
 U-Net Sample Prediction
 ![image](https://github.com/vladtimug/MasterThesis/assets/44322734/979c1ca6-8763-4ecc-925f-ddc026e98566)
